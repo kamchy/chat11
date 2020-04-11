@@ -21,14 +21,18 @@ public class Client {
         var port = args[1];
         var username = args[2];
 
+        startClientWith(host, port, username);
+
+
+    }
+
+    public static void startClientWith(String host, String port, String username) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
         OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
         IncommingMessageHandler incommingMessageHandler = new ConsoleReceiverHandler();
         InputLoop inputLoop = new ConsoleLoop();
 
         startSendREceive(host, port, incommingMessageHandler, outputMessageHandler, inputLoop);
-
-
     }
 
 

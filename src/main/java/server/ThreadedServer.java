@@ -44,8 +44,14 @@ public class ThreadedServer implements Runnable{
         return new ThreadedServer(port);
     }
 
+
     public static void main(String[] args) throws InterruptedException {
-        var threadedServer = new Thread(ThreadedServer.create(8881));
+        int port = Integer.parseInt(args[0]);
+        startServerAtPort(port);
+    }
+
+    public static void startServerAtPort(int port) throws InterruptedException {
+        var threadedServer = new Thread(ThreadedServer.create(port));
         threadedServer.start();
         threadedServer.join();
     }
