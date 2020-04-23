@@ -12,11 +12,17 @@ public class Main {
                 }
                 ThreadedServer.startServerAtPort(port);
 
-            } else if (option.equals("-c")) {
+            } else if (option.startsWith("-c")) {
                 var host = args[1];
                 var port = args[2];
                 var name = args[3];
-                Client.startClientWith(host, port, name);
+                if (option.equals("-cg")) {
+                    Client.startGuiClientWith(host, port, name);
+                } else {
+                    Client.startClientWith(host, port, name);
+                }
+            } else {
+                System.out.println("Invalid options");
             }
         } catch (Exception e) {
             System.out.printf("Usage: [one of]\njava -jar chat11.jar -s [port]\n java -jar chat11.jar -c host port username\n");

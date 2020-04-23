@@ -8,6 +8,7 @@ import java.net.Socket;
 import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 public class Client {
@@ -25,7 +26,15 @@ public class Client {
 
 
     }
+    public static void startGuiClientWith(String host, String port, String username) {
+        BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
+        OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
+        SimpleServerProxy simpleServerProxy = new SimpleServerProxy(outputMessageHandler);
+        GuiClient gc = new GuiClient(host, port, username, simpleServerProxy);
+        gc.show();
+        startSendREceive(host, port,  simpleServerProxy, outputMessageHandler, null);
 
+    }
     public static void startClientWith(String host, String port, String username) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
         OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
@@ -39,16 +48,22 @@ public class Client {
     private static void startSendREceive(String host, String port, IncommingMessageHandler incomingMessageHandler,
                                          OutputMessageHandler outputMessageHandler, InputLoop inputLoop) {
         try (Socket s = new Socket(host, Integer.parseInt(port))){
+            System.out.printf("%s  - %s [%s: %s]\n", System.nanoTime(), "socket created for ", host, port);
             var rt = new Thread(new Receiver(s.getInputStream(), incomingMessageHandler));
             rt.start();
+
 
             var st = new Thread(new Sender(s.getOutputStream(), outputMessageHandler));
             st.start();
 
-            inputLoop.loop(outputMessageHandler);
+            if (inputLoop != null) {
+                inputLoop.loop(outputMessageHandler);
+            }
 
-        } catch (IOException e) {
-            incomingMessageHandler.onError(e.getMessage());
+            st.join();
+            rt.join();
+        } catch (IOException | InterruptedException e) {
+            System.out.print("IOException when creating client socket" + e.getMessage());
         }
     }
 
@@ -107,6 +122,7 @@ public class Client {
 
             } catch (IOException | ClassNotFoundException e) {
                 handler.onError("Receiver exiting:" + e.getMessage());
+                System.out.printf("Exception when running receiver: " + e.getMessage());
             }
 
         }
@@ -142,6 +158,7 @@ public class Client {
 
         }
     }
+
 
 
 
@@ -233,6 +250,67 @@ public class Client {
                 System.out.print("Exception: " + e.getMessage());
             }
 
+        }
+    }
+
+    private static class SimpleServerProxy implements GuiClient.ServerProxy, IncommingMessageHandler {
+        private final OutputMessageHandler outputHandler;
+        private Consumer<String> lineCallback;
+        private Consumer<String> removeClientCallback;
+        private Consumer<String> addClientCallback;
+
+        public SimpleServerProxy(OutputMessageHandler outputMessageHandler) {
+            this.outputHandler = outputMessageHandler;
+        }
+
+        @Override
+        public void send(String text) {
+            try {
+                outputHandler.onString(text);
+            } catch (ConsoleConsumer.InputCompleteException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void setAddLineCallback(Consumer<String> lineConsumer) {
+            this.lineCallback = lineConsumer;
+
+        }
+
+        @Override
+        public void setAddClientConsumer(Consumer<String> clientConsumer) {
+            this.addClientCallback = clientConsumer;
+        }
+
+        @Override
+        public void setRemoveClientConsumer(Consumer<String> clientConsumer) {
+            this.removeClientCallback = clientConsumer;
+        }
+
+        @Override
+        public void onConnect(User u) {
+            this.addClientCallback.accept(u.getName());
+        }
+
+        @Override
+        public void onDisconnect(User u) {
+            this.removeClientCallback.accept(u.getName());
+        }
+
+        @Override
+        public void onMessage(User u, String content) {
+            this.lineCallback.accept(String.format("[%s] %s", u.getName(), content));
+        }
+
+        @Override
+        public void onInvalid(Message m) {
+            this.lineCallback.accept(String.format("[INVALID] %s", m));
+        }
+
+        @Override
+        public void onError(String s) {
+            this.lineCallback.accept(String.format("[ERROR] %s", s));
         }
     }
 }
