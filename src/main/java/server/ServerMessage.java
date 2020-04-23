@@ -25,4 +25,12 @@ final class ServerMessage {
     Message withUser(User user) {
         return new Message(message.getType(), message.getContent(), user);
     }
+
+    @Override
+    public String toString() {
+        return "ServerMessage{" +
+                "uuid=" + uuid +
+                ", message=" + message +
+                '}';
+    }
 }
