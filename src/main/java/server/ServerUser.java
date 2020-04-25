@@ -32,4 +32,12 @@ class ServerUser {
     void updateUser(User withUpddatedName) {
         user = withUpddatedName;
     }
+
+    @Override
+    public String toString() {
+        return "ServerUser{" +
+                "user=" + user +
+                ", id=" + id +
+                '}';
+    }
 }

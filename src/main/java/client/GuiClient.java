@@ -17,12 +17,14 @@ public final class GuiClient {
     private static final String TITLE_FORMAT = "%s:%s - %s";
     public static final int WIDTH = 400;
     public static final int HEIGHT = 300;
+    public static final Color BGCOLOR = Color.getColor("fafa00");
     private final String host;
     private final String port;
     private final String username;
     private final JFrame frame;
     private final JTextArea textarea = new JTextArea();
     private final JTextField textField = new JTextField();
+    private final JScrollPane scrollPaneWithArea = new JScrollPane(textarea);
     private final JButton send = new JButton("Send");
     private final ServerProxy proxy;
     private Logger logger = Logger.getLogger(GuiClient.class.getName());
@@ -42,6 +44,7 @@ public final class GuiClient {
         this.proxy = proxy;
 
         this.frame = new JFrame();
+
         frame.setTitle(String.format(TITLE_FORMAT, host, port, username));
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
@@ -51,8 +54,8 @@ public final class GuiClient {
             }
 
             @Override
-            public void windowClosed(WindowEvent e) {
-                disconnect(proxy, username);
+            public void windowActivated(WindowEvent e) {
+                textField.requestFocus();
             }
         });
 
@@ -67,7 +70,10 @@ public final class GuiClient {
     }
 
     private void addToTextArea(String line) {
-        SwingUtilities.invokeLater(() -> textarea.append(line + "\n"));
+        SwingUtilities.invokeLater(() -> {
+            textarea.append(line + "\n");
+            scrollPaneWithArea.scrollRectToVisible(textarea.getVisibleRect());
+        });
     }
 
     private Consumer<String> addToTextAreaWith(String prefix) {
@@ -103,7 +109,9 @@ public final class GuiClient {
     private Container createContentPane() {
         var pane = new JPanel();
         pane.setLayout(new BorderLayout());
-        pane.add(textarea, BorderLayout.CENTER);
+        textarea.setEditable(false);
+        textarea.setBackground(BGCOLOR);
+        pane.add(scrollPaneWithArea, BorderLayout.CENTER);
         JPanel commitLine = new JPanel(new BorderLayout());
         commitLine.add(textField, BorderLayout.CENTER);
         commitLine.add(send, BorderLayout.EAST);

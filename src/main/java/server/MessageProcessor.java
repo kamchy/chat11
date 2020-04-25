@@ -89,6 +89,7 @@ public class MessageProcessor implements  Runnable{
     }
 
     private void sendToUser(ServerUser su, Message msg) throws IOException {
+        logger.info("sendinfg message " + msg + " to user " + su);
         su.getOs().writeObject(msg);
         su.getOs().flush();
     }
