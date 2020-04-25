@@ -5,7 +5,6 @@ import commom.User;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
@@ -16,16 +15,13 @@ public class Client {
     private static final String INPUT_TERMINAL = "q";
 
     public static void main(String[] args) {
-        //TODO nice optionals or args library
-        System.out.println("args:" + Arrays.toString(args));
         var host = args[0];
         var port = args[1];
         var username = args[2];
 
         startClientWith(host, port, username);
-
-
     }
+
     public static void startGuiClientWith(String host, String port, String username) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
         OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
@@ -33,22 +29,20 @@ public class Client {
         GuiClient gc = new GuiClient(host, port, username, simpleServerProxy);
         gc.show();
         startSendREceive(host, port,  simpleServerProxy, outputMessageHandler, null);
-
     }
+
     public static void startClientWith(String host, String port, String username) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
         OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
-        Consumer<Message> incommingMessageHandler = new ConsoleReceiverHandler();
+        Consumer<Message> incomingMessageHandler = new ConsoleReceiverHandler();
         InputLoop inputLoop = new ConsoleLoop();
-
-        startSendREceive(host, port, incommingMessageHandler, outputMessageHandler, inputLoop);
+        startSendREceive(host, port, incomingMessageHandler, outputMessageHandler, inputLoop);
     }
 
 
     private static void startSendREceive(String host, String port, Consumer<Message> incomingMessageHandler,
                                          OutputMessageHandler outputMessageHandler, InputLoop inputLoop) {
         try (Socket s = new Socket(host, Integer.parseInt(port))){
-            System.out.printf("%s  - %s [%s: %s]\n", System.nanoTime(), "socket created for ", host, port);
             var rt = new Thread(new Receiver(s.getInputStream(), incomingMessageHandler));
             rt.start();
 
@@ -63,7 +57,7 @@ public class Client {
             st.join();
             rt.join();
         } catch (IOException | InterruptedException e) {
-            System.out.print("IOException when creating client socket" + e.getMessage());
+            System.err.print("IOException when creating client socket" + e.getMessage());
         }
     }
 
@@ -73,8 +67,7 @@ public class Client {
     }
 
     interface OutputMessageHandler {
-        void onString(String s) throws ConsoleConsumer.InputCompleteException;
-
+        void onString(String s);
         BlockingQueue<Message> getQueue();
 
         void disconnect(String username);
@@ -106,7 +99,6 @@ public class Client {
     }
 
     private static final class Sender implements Runnable {
-
         private final BlockingQueue<Message> blockingQueue;
         private OutputStream oss;
         private static Logger logger = Logger.getLogger(Sender.class.getName());
@@ -132,15 +124,10 @@ public class Client {
                     oss.flush();
                 }
             } catch (IOException | InterruptedException e) {
-                System.out.println("Sender exception: " + e.getMessage());
+                System.err.println("Sender exception: " + e.getMessage());
             }
-
         }
     }
-
-
-
-
 
     private static class ConsoleReceiverHandler implements Consumer<Message> {
         private void showMessage(String format, Object...args) {
@@ -154,7 +141,10 @@ public class Client {
 
         @Override
         public Consumer<Message> andThen(Consumer<? super Message> after) {
-            return message -> { accept(message); after.accept(message); };
+            return message -> {
+                accept(message);
+                after.accept(message);
+            };
         }
     }
 
@@ -172,7 +162,7 @@ public class Client {
                 q.put(Message.createConnectMessage(self));
                 q.put(Message.createMessage("hello", self));
             } catch (InterruptedException e) {
-                System.out.print("cannot send connect message");
+                System.err.print("cannot send connect message");
             }
         }
 
@@ -200,11 +190,8 @@ public class Client {
 
         @Override
         public void disconnect(String username) {
-            logger.info("disconnect in Console COnsumer with username" + username);
+            logger.info("Disconnect in ConsoleConsumer with username" + username);
             onString(INPUT_TERMINAL);
-        }
-
-        private static class InputCompleteException extends Throwable {
         }
     }
 
@@ -218,11 +205,9 @@ public class Client {
                     handler.onString(line);
                     line = r.readLine();
                 }
-
-            } catch (IOException | ConsoleConsumer.InputCompleteException e) {
+            } catch (IOException e) {
                 System.out.print("Exception: " + e.getMessage());
             }
-
         }
     }
 
@@ -239,11 +224,7 @@ public class Client {
 
         @Override
         public void send(String text) {
-            try {
-                outputHandler.onString(text);
-            } catch (ConsoleConsumer.InputCompleteException e) {
-                e.printStackTrace();
-            }
+            outputHandler.onString(text);
         }
 
         @Override

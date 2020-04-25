@@ -62,11 +62,11 @@ public class MessageProcessor implements  Runnable{
     }
 
     private synchronized void addUser(ServerMessage msg) {
-        var usermsg = msg.getMessage();
+        var userMsg = msg.getMessage();
         var uuid = msg.getUuid();
         if (userMap.containsKey(uuid)) {
-            var userWithUpddatedName = withUpddatedName(usermsg.getUser());
-            userMap.get(uuid).updateUser(userWithUpddatedName);
+            var userWithUpdatedName = withUpdatedName(userMsg.getUser());
+            userMap.get(uuid).updateUser(userWithUpdatedName);
         }
     }
 
@@ -89,13 +89,17 @@ public class MessageProcessor implements  Runnable{
     }
 
     private void sendToUser(ServerUser su, Message msg) throws IOException {
-        logger.info("sendinfg message " + msg + " to user " + su);
+        logger.info("Sending message " + msg + " to user " + su);
         su.getOs().writeObject(msg);
         su.getOs().flush();
     }
 
-    private User withUpddatedName(User user) {
-        var cnt = userMap.values().stream().filter(su -> su.getUser().isPresent() && su.getUser().get().getName().startsWith(user.getName())).count();
+    private User withUpdatedName(User user) {
+        var cnt = userMap.values().stream()
+                .filter(su ->
+                        su.getUser().isPresent() &&
+                        su.getUser().get().getName().startsWith(user.getName()))
+                .count();
         return cnt == 0 ? user : new User(user.getName() + "_" + cnt);
     }
 
