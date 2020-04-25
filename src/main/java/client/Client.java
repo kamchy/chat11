@@ -38,14 +38,14 @@ public class Client {
     public static void startClientWith(String host, String port, String username) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
         OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
-        IncommingMessageHandler incommingMessageHandler = new ConsoleReceiverHandler();
+        Consumer<Message> incommingMessageHandler = new ConsoleReceiverHandler();
         InputLoop inputLoop = new ConsoleLoop();
 
         startSendREceive(host, port, incommingMessageHandler, outputMessageHandler, inputLoop);
     }
 
 
-    private static void startSendREceive(String host, String port, IncommingMessageHandler incomingMessageHandler,
+    private static void startSendREceive(String host, String port, Consumer<Message> incomingMessageHandler,
                                          OutputMessageHandler outputMessageHandler, InputLoop inputLoop) {
         try (Socket s = new Socket(host, Integer.parseInt(port))){
             System.out.printf("%s  - %s [%s: %s]\n", System.nanoTime(), "socket created for ", host, port);
@@ -67,17 +67,6 @@ public class Client {
         }
     }
 
-    interface IncommingMessageHandler {
-        void onConnect(User u);
-
-        void onDisconnect(User u);
-
-        void onMessage(User u, String content);
-
-        void onInvalid(Message m);
-
-        void onError(String s);
-    }
 
     interface  InputLoop {
         void loop(OutputMessageHandler outputMessageHandler);
@@ -87,14 +76,16 @@ public class Client {
         void onString(String s) throws ConsoleConsumer.InputCompleteException;
 
         BlockingQueue<Message> getQueue();
+
+        void disconnect(String username);
     }
 
     private static final class Receiver implements Runnable {
 
-        private final IncommingMessageHandler handler;
+        private final Consumer<Message> handler;
         private InputStream is;
 
-        Receiver(InputStream is, IncommingMessageHandler hander) {
+        Receiver(InputStream is, Consumer<Message> hander) {
             this.is = is;
             this.handler = hander;
         }
@@ -104,25 +95,10 @@ public class Client {
             try (var iss = new ObjectInputStream(this.is)) {
                 while (true) {
                     var m = (Message) iss.readObject();
-                    switch (m.getType()) {
-                        case CONNECT:
-                            handler.onConnect(m.getUser());
-                            break;
-                        case DISCONNECT:
-                            handler.onDisconnect(m.getUser());
-                            break;
-                        case MESSAGE:
-                            handler.onMessage(m.getUser(), m.getContent());
-                            break;
-                        case INVALID:
-                            handler.onInvalid(m);
-                            break;
-                    }
+                    handler.accept(m);
                 }
-
             } catch (IOException | ClassNotFoundException e) {
-                handler.onError("Receiver exiting:" + e.getMessage());
-                System.out.printf("Exception when running receiver: " + e.getMessage());
+                System.out.println("Exception when running receiver: " + e.getMessage());
             }
 
         }
@@ -149,6 +125,9 @@ public class Client {
                     logger.info("Sender waits...");
                     Message obk = blockingQueue.take();
                     logger.info("Sender took from queue: " + obk);
+                    if (obk.getType().equals(Message.Type.DISCONNECT)) {
+                        logger.info("Sending disconnect mesage!!!");
+                    }
                     oss.writeObject(obk);
                     oss.flush();
                 }
@@ -163,35 +142,19 @@ public class Client {
 
 
 
-    private static class ConsoleReceiverHandler implements IncommingMessageHandler {
-        @Override
-        public void onConnect(User u) {
-            showMessage("Connected: %s\n", u.getName());
-        }
-
-        @Override
-        public void onDisconnect(User u) {
-            showMessage("Disconnected: %s\n", u.getName());
-        }
-
-        @Override
-        public void onMessage(User u, String msg) {
-            showMessage("Received [%s]: %s\n", u.getName(), msg);
-        }
-
-        @Override
-        public void onInvalid(Message m){
-            showMessage("NVALID %s\n", m);
-        }
-
-        @Override
-        public void onError(String s) {
-            showMessage(s);
-
-        }
-
+    private static class ConsoleReceiverHandler implements Consumer<Message> {
         private void showMessage(String format, Object...args) {
             System.out.format(format + "\n", args);
+        }
+
+        @Override
+        public void accept(Message message) {
+            showMessage("%s\n", message);
+        }
+
+        @Override
+        public Consumer<Message> andThen(Consumer<? super Message> after) {
+            return message -> { accept(message); after.accept(message); };
         }
     }
 
@@ -199,6 +162,8 @@ public class Client {
 
         private final BlockingQueue<Message> q;
         private final User self;
+        private boolean exited = false;
+        private Logger logger = Logger.getLogger(ConsoleConsumer.class.getName());
 
         ConsoleConsumer(BlockingQueue<Message> inQueue, User self) {
             this.q = inQueue;
@@ -216,19 +181,27 @@ public class Client {
             try {
                 if (s.equals(INPUT_TERMINAL)) {
                     q.put(Message.createDisonnectMessage(self));
-                    System.out.print("Terminating...\n");
-                    System.exit(0);
+                    System.out.print("No more input would be sent from user " + self );
+                    exited = true;
+                } else {
+                    if (!exited) {
+                        q.put(Message.createMessage(s, self));
+                    }
                 }
-                q.put(Message.createMessage(s, self));
             } catch (InterruptedException e) {
                 e.printStackTrace();
-
             }
         }
 
         @Override
         public BlockingQueue<Message> getQueue() {
             return q;
+        }
+
+        @Override
+        public void disconnect(String username) {
+            logger.info("disconnect in Console COnsumer with username" + username);
+            onString(INPUT_TERMINAL);
         }
 
         private static class InputCompleteException extends Throwable {
@@ -253,11 +226,12 @@ public class Client {
         }
     }
 
-    private static class SimpleServerProxy implements GuiClient.ServerProxy, IncommingMessageHandler {
+    private static class SimpleServerProxy implements GuiClient.ServerProxy, Consumer<Message> {
         private final OutputMessageHandler outputHandler;
-        private Consumer<String> lineCallback;
+        private Consumer<Message> lineCallback;
         private Consumer<String> removeClientCallback;
         private Consumer<String> addClientCallback;
+        private Logger logger = Logger.getLogger(SimpleServerProxy.class.getName());
 
         public SimpleServerProxy(OutputMessageHandler outputMessageHandler) {
             this.outputHandler = outputMessageHandler;
@@ -273,7 +247,7 @@ public class Client {
         }
 
         @Override
-        public void setAddLineCallback(Consumer<String> lineConsumer) {
+        public void setAddLineCallback(Consumer<Message> lineConsumer) {
             this.lineCallback = lineConsumer;
 
         }
@@ -289,28 +263,30 @@ public class Client {
         }
 
         @Override
-        public void onConnect(User u) {
-            this.addClientCallback.accept(u.getName());
+        public void disconnect(String username) {
+            logger.info("Proxy - disconnecting with username " + username);
+            outputHandler.disconnect(username);
         }
 
         @Override
-        public void onDisconnect(User u) {
-            this.removeClientCallback.accept(u.getName());
+        public void accept(Message message) {
+            switch (message.getType()) {
+                case MESSAGE:
+                case INVALID:
+                    lineCallback.accept(message);
+                    break;
+                case CONNECT:
+                    addClientCallback.accept(message.getUser().getName());
+                    break;
+                case DISCONNECT:
+                    removeClientCallback.accept(message.getUser().getName());
+                    break;
+            }
         }
 
         @Override
-        public void onMessage(User u, String content) {
-            this.lineCallback.accept(String.format("[%s] %s", u.getName(), content));
-        }
-
-        @Override
-        public void onInvalid(Message m) {
-            this.lineCallback.accept(String.format("[INVALID] %s", m));
-        }
-
-        @Override
-        public void onError(String s) {
-            this.lineCallback.accept(String.format("[ERROR] %s", s));
+        public Consumer<Message> andThen(Consumer<? super Message> after) {
+            throw new UnsupportedOperationException();
         }
     }
 }

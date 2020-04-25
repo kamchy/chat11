@@ -23,7 +23,11 @@ final class ServerMessage {
     }
 
     Message withUser(User user) {
-        return new Message(message.getType(), message.getContent(), user);
+        if (message.getUser().equals(user)) {
+            return message;
+        } else {
+            return new Message(message.getType(), message.getContent(), user);
+        }
     }
 
     @Override

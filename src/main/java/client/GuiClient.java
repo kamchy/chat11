@@ -1,15 +1,22 @@
 package client;
 
+import commom.Message;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 
 public final class GuiClient {
     private static final String TITLE_FORMAT = "%s:%s - %s";
+    public static final int WIDTH = 400;
+    public static final int HEIGHT = 300;
     private final String host;
     private final String port;
     private final String username;
@@ -18,13 +25,14 @@ public final class GuiClient {
     private final JTextField textField = new JTextField();
     private final JButton send = new JButton("Send");
     private final ServerProxy proxy;
+    private Logger logger = Logger.getLogger(GuiClient.class.getName());
 
     interface  ServerProxy {
         void send(String text);
-        void setAddLineCallback(Consumer<String> lineConsumer);
-
+        void setAddLineCallback(Consumer<Message> lineConsumer);
         void setAddClientConsumer(Consumer<String> clientConsumer);
         void setRemoveClientConsumer(Consumer<String> clientConsumer);
+        void disconnect(String username);
     }
 
     public GuiClient(String host, String port, String username, ServerProxy proxy) {
@@ -36,9 +44,26 @@ public final class GuiClient {
         this.frame = new JFrame();
         frame.setTitle(String.format(TITLE_FORMAT, host, port, username));
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setSize(new Dimension(800, 600));
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                disconnect(proxy, username);
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                disconnect(proxy, username);
+            }
+        });
+
+        frame.setSize(new Dimension(WIDTH, HEIGHT));
         frame.setContentPane(createContentPane());
         configureComponents();
+    }
+
+    private void disconnect(ServerProxy proxy, String username) {
+        logger.info("closing window");
+        proxy.disconnect(username);
     }
 
     private void addToTextArea(String line) {
@@ -59,9 +84,15 @@ public final class GuiClient {
             }
         });
         send.addActionListener((e) -> sendTextToServer());
-        proxy.setAddLineCallback(this::addToTextArea);
+        proxy.setAddLineCallback(formatMessage(this::addToTextArea));
         proxy.setAddClientConsumer(addToTextAreaWith("Client added: "));
         proxy.setRemoveClientConsumer(addToTextAreaWith("Client removed: "));
+    }
+
+    private Consumer<Message> formatMessage(Consumer<String> stringConsumer) {
+        return message -> stringConsumer.accept(
+                String.format("[%s] %s", message.getUser().getName(), message.getContent()));
+
     }
 
     private void sendTextToServer() {
@@ -71,8 +102,6 @@ public final class GuiClient {
 
     private Container createContentPane() {
         var pane = new JPanel();
-
-
         pane.setLayout(new BorderLayout());
         pane.add(textarea, BorderLayout.CENTER);
         JPanel commitLine = new JPanel(new BorderLayout());

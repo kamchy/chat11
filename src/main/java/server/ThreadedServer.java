@@ -13,11 +13,10 @@ public class ThreadedServer implements Runnable{
 
     private ThreadedServer(int port) {
         this.port = port;
-
     }
 
     public void run() {
-        BlockingQueue<ServerMessage> messagesFromClients =  new LinkedBlockingQueue<>();
+        BlockingQueue<ServerMessage> messagesFromClients = new LinkedBlockingQueue<>();
         MessageProcessor messageProcessor = new MessageProcessor(messagesFromClients);
         var mp = new Thread(messageProcessor);
         mp.start();
@@ -29,7 +28,7 @@ public class ThreadedServer implements Runnable{
             while (true) {
                 var conn = ss.accept();
                 logger.info("accepted  connection "  + conn.getInetAddress()) ;
-                var clientId = messageProcessor.addUser(conn.getOutputStream());
+                var clientId = messageProcessor.addChannell(conn.getOutputStream());
                 logger.info("Connected " + clientId) ;
                 var cli = new ClientThread(conn.getInputStream(), messagesFromClients, clientId);
                 cli.start();

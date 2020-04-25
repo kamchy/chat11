@@ -21,7 +21,7 @@ public class MessageProcessor implements  Runnable{
         this.queue = messagesFromClients;
     }
 
-    synchronized  UUID addUser(OutputStream outputStream) throws IOException {
+    synchronized  UUID addChannell(OutputStream outputStream) throws IOException {
         var uuid = UUID.randomUUID();
         logger.info("Add null user with id: " + uuid);
         userMap.put(uuid, new ServerUser(null, uuid, new ObjectOutputStream(outputStream)));
@@ -37,19 +37,16 @@ public class MessageProcessor implements  Runnable{
                 var usermsg = msg.getMessage();
                 switch (msg.getMessage().getType()) {
                     case CONNECT:
-                        var uuid = msg.getUuid();
-                        if (userMap.containsKey(uuid)) {
-                            var  withUpddatedName = withUpddatedName(usermsg.getUser());
-                            userMap.get(uuid).updateUser(withUpddatedName);
-                        }
+                        addUser(msg);
                         send(msg);
                         break;
                     case MESSAGE:
                         send(msg);
                         break;
                     case DISCONNECT:
-                        userMap.remove(msg.getUuid()); // socket is already closed for this client
+                        logger.info("Got disconnect message from user "+ usermsg.getUser());
                         send(msg);
+                        removeUser(msg.getUuid());
                         break;
                     case INVALID:
                         logger.warning("Invalid message received: " + usermsg.getContent());
@@ -64,14 +61,27 @@ public class MessageProcessor implements  Runnable{
         }
     }
 
-    private void send(ServerMessage msg) {
+    private synchronized void addUser(ServerMessage msg) {
+        var usermsg = msg.getMessage();
+        var uuid = msg.getUuid();
+        if (userMap.containsKey(uuid)) {
+            var userWithUpddatedName = withUpddatedName(usermsg.getUser());
+            userMap.get(uuid).updateUser(userWithUpddatedName);
+        }
+    }
+
+    synchronized  private void removeUser(UUID uuid) {
+        userMap.remove(uuid);
+    }
+
+    private synchronized void send(ServerMessage msg) {
         logger.info("Sending " + msg);
         userMap.values().forEach(su -> {
             try {
-                var messageSource = userMap.get(msg.getUuid()).getUser();
-                if (messageSource.isPresent()) {
-                    sendToUser(su, msg.withUser(messageSource.get())); // overwrite user
-                }
+                ServerUser serverUser = userMap.get(msg.getUuid());
+                var sourceUser = serverUser != null ? serverUser.getUser().orElse(msg.getMessage().getUser()) : msg.getMessage().getUser();
+                // overwrite user if exists in map (might not exist if was removed, then e original user (ugly)
+                sendToUser(su, msg.withUser(sourceUser));
             } catch (IOException e) {
                 e.printStackTrace();
             }

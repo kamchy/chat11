@@ -34,11 +34,13 @@ class ClientThread extends Thread {
                 if (o instanceof Message) {
                     Message message = (Message) o;
                     logger.info(String.format("%s got message - %s", uuid, message));
-                    serverMessages.offer(new server.ServerMessage(uuid, message));
+                    synchronized (serverMessages) {
+                        serverMessages.offer(new server.ServerMessage(uuid, message));
+                    }
                 }
             }
         } catch (IOException | ClassNotFoundException e) {
-           logger.info(String.format("Client thread ends: %s\n", e.getMessage()));
+           logger.info(String.format("Client thread ends: %s\n", e));
         }
 
     }
