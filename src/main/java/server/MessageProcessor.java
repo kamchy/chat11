@@ -15,14 +15,14 @@ import java.util.concurrent.BlockingQueue;
 
 public class MessageProcessor implements  Runnable{
     private static final Logger logger = LoggerFactory.getLogger(MessageProcessor.class);
-    private final BlockingQueue<ServerMessage> queue;
+    private final BlockingQueue<ServerMessage> messageQueue;
     private final Map<UUID, ServerUser> userMap = new TreeMap<>();
 
     MessageProcessor(BlockingQueue<ServerMessage> messagesFromClients) {
-        this.queue = messagesFromClients;
+        this.messageQueue = messagesFromClients;
     }
 
-    synchronized  UUID addChannell(OutputStream outputStream) throws IOException {
+    synchronized  UUID addChannel(OutputStream outputStream) throws IOException {
         var uuid = UUID.randomUUID();
         logger.info("Add null user with id: " + uuid);
         userMap.put(uuid, new ServerUser(null, uuid, new ObjectOutputStream(outputStream)));
@@ -33,9 +33,9 @@ public class MessageProcessor implements  Runnable{
     public void run() {
         while (true) {
             try {
-                var msg = queue.take();
+                var msg = messageQueue.take();
                 logger.info("Loop:  " + msg);
-                var usermsg = msg.getMessage();
+                var userMessage = msg.getMessage();
                 switch (msg.getMessage().getType()) {
                     case CONNECT:
                         addUser(msg);
@@ -45,15 +45,15 @@ public class MessageProcessor implements  Runnable{
                         send(msg);
                         break;
                     case DISCONNECT:
-                        logger.info("Got disconnect message from user "+ usermsg.getUser());
+                        logger.info("Got disconnect message from user "+ userMessage.getUser());
                         send(msg);
                         removeUser(msg.getUuid());
                         break;
                     case INVALID:
-                        logger.warn("Invalid message received: " + usermsg.getContent());
+                        logger.warn("Invalid message received: " + userMessage.getContent());
                         break;
                     default:
-                        throw new IllegalStateException("Unexpected value: " + usermsg.getType());
+                        throw new IllegalStateException("Unexpected value: " + userMessage.getType());
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();

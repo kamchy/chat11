@@ -30,7 +30,7 @@ public class ThreadedServer implements Runnable{
             while (true) {
                 var conn = ss.accept();
                 logger.info("accepted  connection "  + conn.getInetAddress()) ;
-                var clientId = messageProcessor.addChannell(conn.getOutputStream());
+                var clientId = messageProcessor.addChannel(conn.getOutputStream());
                 logger.info("Connected " + clientId) ;
                 var cli = new ClientThread(conn.getInputStream(), messagesFromClients, clientId);
                 cli.start();
