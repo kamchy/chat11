@@ -1,6 +1,8 @@
 package client;
 
 import commom.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,7 +12,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 
 public final class GuiClient {
@@ -27,7 +28,7 @@ public final class GuiClient {
     private final JScrollPane scrollPaneWithArea = new JScrollPane(textarea);
     private final JButton send = new JButton("Send");
     private final ServerProxy proxy;
-    private Logger logger = Logger.getLogger(GuiClient.class.getName());
+    private Logger logger = LoggerFactory.getLogger(GuiClient.class);
 
     interface  ServerProxy {
         void send(String text);

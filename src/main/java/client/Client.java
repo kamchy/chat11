@@ -2,13 +2,14 @@ package client;
 
 import commom.Message;
 import commom.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 public class Client {
 
@@ -101,7 +102,7 @@ public class Client {
     private static final class Sender implements Runnable {
         private final BlockingQueue<Message> blockingQueue;
         private OutputStream oss;
-        private static Logger logger = Logger.getLogger(Sender.class.getName());
+        private static Logger logger = LoggerFactory.getLogger(Sender.class);
 
         Sender(OutputStream os, OutputMessageHandler consumer) {
             this.oss = os;
@@ -153,7 +154,7 @@ public class Client {
         private final BlockingQueue<Message> q;
         private final User self;
         private boolean exited = false;
-        private Logger logger = Logger.getLogger(ConsoleConsumer.class.getName());
+        private Logger logger = LoggerFactory.getLogger(ConsoleConsumer.class);
 
         ConsoleConsumer(BlockingQueue<Message> inQueue, User self) {
             this.q = inQueue;
@@ -216,7 +217,7 @@ public class Client {
         private Consumer<Message> lineCallback;
         private Consumer<String> removeClientCallback;
         private Consumer<String> addClientCallback;
-        private Logger logger = Logger.getLogger(SimpleServerProxy.class.getName());
+        private Logger logger = LoggerFactory.getLogger(SimpleServerProxy.class);
 
         public SimpleServerProxy(OutputMessageHandler outputMessageHandler) {
             this.outputHandler = outputMessageHandler;

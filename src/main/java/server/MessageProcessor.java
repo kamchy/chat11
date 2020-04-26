@@ -2,6 +2,8 @@ package server;
 
 import commom.Message;
 import commom.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -10,10 +12,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
-import java.util.logging.Logger;
 
 public class MessageProcessor implements  Runnable{
-    private static final Logger logger = Logger.getLogger(MessageProcessor.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(MessageProcessor.class);
     private final BlockingQueue<ServerMessage> queue;
     private final Map<UUID, ServerUser> userMap = new TreeMap<>();
 
@@ -49,7 +50,7 @@ public class MessageProcessor implements  Runnable{
                         removeUser(msg.getUuid());
                         break;
                     case INVALID:
-                        logger.warning("Invalid message received: " + usermsg.getContent());
+                        logger.warn("Invalid message received: " + usermsg.getContent());
                         break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + usermsg.getType());

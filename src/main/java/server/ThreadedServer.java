@@ -1,13 +1,15 @@
 package server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.logging.Logger;
 
 public class ThreadedServer implements Runnable{
-    private static Logger logger = Logger.getLogger(ThreadedServer.class.getName());
+    private static Logger logger = LoggerFactory.getLogger(ThreadedServer.class);
     private final int port;
 
 
