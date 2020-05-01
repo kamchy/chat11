@@ -70,8 +70,7 @@ public class Client {
     interface OutputMessageHandler {
         void onString(String s);
         BlockingQueue<Message> getQueue();
-
-        void disconnect(String username);
+        void disconnect();
     }
 
     private static final class Receiver implements Runnable {
@@ -190,8 +189,8 @@ public class Client {
         }
 
         @Override
-        public void disconnect(String username) {
-            logger.info("Disconnect in ConsoleConsumer with username" + username);
+        public void disconnect() {
+            logger.info("Disconnect in ConsoleConsume");
             onString(INPUT_TERMINAL);
         }
     }
@@ -205,6 +204,9 @@ public class Client {
                 while (!line.equals(INPUT_TERMINAL)) {
                     handler.onString(line);
                     line = r.readLine();
+                }
+                if (line.equals(INPUT_TERMINAL)) {
+                    handler.disconnect();
                 }
             } catch (IOException e) {
                 System.out.print("Exception: " + e.getMessage());
@@ -245,9 +247,9 @@ public class Client {
         }
 
         @Override
-        public void disconnect(String username) {
-            logger.info("Proxy - disconnecting with username " + username);
-            outputHandler.disconnect(username);
+        public void disconnect() {
+            logger.info("Proxy - disconnecting");
+            outputHandler.disconnect();
         }
 
         @Override

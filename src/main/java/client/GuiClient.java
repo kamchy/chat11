@@ -19,7 +19,7 @@ public final class GuiClient {
     private static final String TITLE_FORMAT = "%s:%s - %s";
     public static final int WIDTH = 400;
     public static final int HEIGHT = 300;
-    public static final Color TEXTAREA_COLOR = Color.getColor("fafa00");
+    public static final Color COLOR_TEXTAREA_BG = Color.getColor("fafa00");
     private final String host;
     private final String port;
     private final String username;
@@ -37,10 +37,11 @@ public final class GuiClient {
 
     interface  ServerProxy {
         void send(String text);
+        void disconnect();
+
         void setAddLineCallback(Consumer<Message> lineConsumer);
         void setAddClientConsumer(Consumer<String> clientConsumer);
         void setRemoveClientConsumer(Consumer<String> clientConsumer);
-        void disconnect(String username);
     }
 
     public GuiClient(String host, String port, String username, ServerProxy proxy) {
@@ -56,7 +57,7 @@ public final class GuiClient {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                disconnect(proxy, username);
+                proxy.disconnect();
             }
 
             @Override
@@ -69,11 +70,6 @@ public final class GuiClient {
         frame.setContentPane(createContentPane());
         configureComponents();
 
-    }
-
-    private void disconnect(ServerProxy proxy, String username) {
-        logger.info("closing window");
-        proxy.disconnect(username);
     }
 
     private void addToTextArea(String line) {
@@ -97,13 +93,7 @@ public final class GuiClient {
             }
         });
         sendButton.addActionListener((e) -> sendTextToServer());
-        userJList.setCellRenderer(new ListCellRenderer<User>() {
-            @Override
-            public Component getListCellRendererComponent(JList<? extends User> list, User value, int index, boolean isSelected, boolean cellHasFocus) {
-                var la = new JLabel(value.getName());
-                return la;
-            }
-        });
+        userJList.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> new JLabel(value.getName()));
         proxy.setAddLineCallback(formatMessage(this::addToTextArea));
         proxy.setAddClientConsumer(s -> userListModel.addElement(new User(s))); // TODO change api
         proxy.setRemoveClientConsumer(s -> userListModel.removeElement(new User(s)));
@@ -124,8 +114,8 @@ public final class GuiClient {
         var pane = new JPanel();
         pane.setLayout(new BorderLayout());
         textarea.setEditable(false);
-        textarea.setBackground(TEXTAREA_COLOR);
-        userJList.setBackground(TEXTAREA_COLOR);
+        textarea.setBackground(COLOR_TEXTAREA_BG);
+        userJList.setBackground(COLOR_TEXTAREA_BG);
 
 
         messagesAndUsersPane.add(scrollPaneWithArea);
