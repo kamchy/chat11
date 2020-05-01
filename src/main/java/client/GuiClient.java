@@ -15,11 +15,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.function.Consumer;
 
 
-public final class GuiClient {
+public final class GuiClient implements Client.LoopingConsumer {
     private static final String TITLE_FORMAT = "%s:%s - %s";
-    public static final int WIDTH = 400;
-    public static final int HEIGHT = 300;
-    public static final Color COLOR_TEXTAREA_BG = Color.getColor("fafa00");
+    private static final int WIDTH = 400;
+    private static final int HEIGHT = 300;
+    private static final Color COLOR_TEXTAREA_BG = Color.getColor("fafa00");
     private final String host;
     private final String port;
     private final String username;
@@ -28,38 +28,30 @@ public final class GuiClient {
     private final JTextField textField = new JTextField();
     private final JScrollPane scrollPaneWithArea = new JScrollPane(textarea);
     private final JButton sendButton = new JButton("Send");
-    private DefaultListModel<User> userListModel  = new DefaultListModel<>();
+    private final Consumer<Message> messageConsumer;
+    private final DefaultListModel<User> userListModel  = new DefaultListModel<>();
     private final JList<User> userJList = new JList<>(userListModel);
     private final JSplitPane messagesAndUsersPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-    private final ImageIcon frameIcon = new ImageIcon(getClass().getResource("icon.png"));
 
-    private final ServerProxy proxy;
-    private Logger logger = LoggerFactory.getLogger(GuiClient.class);
 
-    interface  ServerProxy {
-        void send(String text);
-        void disconnect();
+    private final Logger logger = LoggerFactory.getLogger(GuiClient.class);
 
-        void setAddLineCallback(Consumer<Message> lineConsumer);
-        void setAddClientConsumer(Consumer<String> clientConsumer);
-        void setRemoveClientConsumer(Consumer<String> clientConsumer);
-    }
 
-    public GuiClient(String host, String port, String username, ServerProxy proxy) {
+    public GuiClient(String host, String port, String username, Consumer<Message> messageConsumer) {
         this.host = host;
         this.port = port;
         this.username = username;
-        this.proxy = proxy;
+        this.messageConsumer = messageConsumer;
 
         this.frame = new JFrame();
 
         frame.setTitle(String.format(TITLE_FORMAT, host, port, username));
-        frame.setIconImage(frameIcon.getImage());
+        frame.setIconImage(new ImageIcon(getClass().getResource("icon.png")).getImage());
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                proxy.disconnect();
+                messageConsumer.accept(Message.createDisonnectMessage(new User(username)));
             }
 
             @Override
@@ -96,9 +88,23 @@ public final class GuiClient {
         });
         sendButton.addActionListener((e) -> sendTextToServer());
         userJList.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> new JLabel(value.getName()));
-        proxy.setAddLineCallback(formatMessage(this::addToTextArea));
-        proxy.setAddClientConsumer(s -> userListModel.addElement(new User(s))); // TODO change api
-        proxy.setRemoveClientConsumer(s -> userListModel.removeElement(new User(s)));
+    }
+
+
+    @Override
+    public void accept(Message message) {
+        switch (message.getType()) {
+            case MESSAGE:
+            case INVALID:
+                formatMessage(this::addToTextArea).accept(message);
+                break;
+            case CONNECT:
+                userListModel.addElement(message.getUser());
+                break;
+            case DISCONNECT:
+                userListModel.removeElement(message.getUser());
+                break;
+        }
     }
 
     private Consumer<Message> formatMessage(Consumer<String> stringConsumer) {
@@ -108,7 +114,7 @@ public final class GuiClient {
     }
 
     private void sendTextToServer() {
-        proxy.send(textField.getText());
+        messageConsumer.accept(Message.createMessage(textField.getText(), new User(username)));
         textField.setText("");
     }
 
@@ -136,7 +142,7 @@ public final class GuiClient {
 
 
 
-    public void show() {
+    private void show() {
         try {
             SwingUtilities.invokeAndWait(() -> frame.setVisible(true));
             messagesAndUsersPane.setDividerLocation(0.6);
@@ -146,4 +152,8 @@ public final class GuiClient {
         }
     }
 
+    @Override
+    public void loop() {
+        show();
+    }
 }
