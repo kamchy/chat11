@@ -31,6 +31,7 @@ public final class GuiClient {
     private DefaultListModel<User> userListModel  = new DefaultListModel<>();
     private final JList<User> userJList = new JList<>(userListModel);
     private final JSplitPane messagesAndUsersPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+    private final ImageIcon frameIcon = new ImageIcon(getClass().getResource("icon.png"));
 
     private final ServerProxy proxy;
     private Logger logger = LoggerFactory.getLogger(GuiClient.class);
@@ -53,6 +54,7 @@ public final class GuiClient {
         this.frame = new JFrame();
 
         frame.setTitle(String.format(TITLE_FORMAT, host, port, username));
+        frame.setIconImage(frameIcon.getImage());
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
