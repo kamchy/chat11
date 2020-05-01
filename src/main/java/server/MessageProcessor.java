@@ -39,6 +39,7 @@ public class MessageProcessor implements  Runnable{
                 switch (msg.getMessage().getType()) {
                     case CONNECT:
                         addUser(msg);
+                        sendExitsingUsers(msg.getUuid());
                         send(msg);
                         break;
                     case MESSAGE:
@@ -60,6 +61,25 @@ public class MessageProcessor implements  Runnable{
             }
 
         }
+    }
+
+    private void sendExitsingUsers(UUID uuid) {
+        var senderUser = userMap.get(uuid);
+        senderUser.getUser().ifPresent(sender -> {
+            for (ServerUser exisingUser : userMap.values()) {
+                exisingUser.getUser().ifPresent(existing ->{
+                    if (!existing.equals(sender)) {
+                        try {
+                            sendToUser(senderUser, Message.createConnectMessage(exisingUser.getUser().get()));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+
+            }
+        }) ;
+
     }
 
     private synchronized void addUser(ServerMessage msg) {
