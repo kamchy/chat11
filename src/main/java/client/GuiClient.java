@@ -1,6 +1,7 @@
 package client;
 
 import commom.Message;
+import commom.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +19,7 @@ public final class GuiClient {
     private static final String TITLE_FORMAT = "%s:%s - %s";
     public static final int WIDTH = 400;
     public static final int HEIGHT = 300;
-    public static final Color BGCOLOR = Color.getColor("fafa00");
+    public static final Color TEXTAREA_COLOR = Color.getColor("fafa00");
     private final String host;
     private final String port;
     private final String username;
@@ -26,7 +27,11 @@ public final class GuiClient {
     private final JTextArea textarea = new JTextArea();
     private final JTextField textField = new JTextField();
     private final JScrollPane scrollPaneWithArea = new JScrollPane(textarea);
-    private final JButton send = new JButton("Send");
+    private final JButton sendButton = new JButton("Send");
+    private DefaultListModel<User> userListModel  = new DefaultListModel<>();
+    private final JList<User> userJList = new JList<>(userListModel);
+    private final JSplitPane messagesAndUsersPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+
     private final ServerProxy proxy;
     private Logger logger = LoggerFactory.getLogger(GuiClient.class);
 
@@ -63,6 +68,7 @@ public final class GuiClient {
         frame.setSize(new Dimension(WIDTH, HEIGHT));
         frame.setContentPane(createContentPane());
         configureComponents();
+
     }
 
     private void disconnect(ServerProxy proxy, String username) {
@@ -90,10 +96,17 @@ public final class GuiClient {
                 }
             }
         });
-        send.addActionListener((e) -> sendTextToServer());
+        sendButton.addActionListener((e) -> sendTextToServer());
+        userJList.setCellRenderer(new ListCellRenderer<User>() {
+            @Override
+            public Component getListCellRendererComponent(JList<? extends User> list, User value, int index, boolean isSelected, boolean cellHasFocus) {
+                var la = new JLabel(value.getName());
+                return la;
+            }
+        });
         proxy.setAddLineCallback(formatMessage(this::addToTextArea));
-        proxy.setAddClientConsumer(addToTextAreaWith("Client added: "));
-        proxy.setRemoveClientConsumer(addToTextAreaWith("Client removed: "));
+        proxy.setAddClientConsumer(s -> userListModel.addElement(new User(s))); // TODO change api
+        proxy.setRemoveClientConsumer(s -> userListModel.removeElement(new User(s)));
     }
 
     private Consumer<Message> formatMessage(Consumer<String> stringConsumer) {
@@ -111,11 +124,19 @@ public final class GuiClient {
         var pane = new JPanel();
         pane.setLayout(new BorderLayout());
         textarea.setEditable(false);
-        textarea.setBackground(BGCOLOR);
-        pane.add(scrollPaneWithArea, BorderLayout.CENTER);
+        textarea.setBackground(TEXTAREA_COLOR);
+        userJList.setBackground(TEXTAREA_COLOR);
+
+
+        messagesAndUsersPane.add(scrollPaneWithArea);
+        scrollPaneWithArea.setAlignmentX(JSplitPane.CENTER_ALIGNMENT);
+        messagesAndUsersPane.add(userJList);
+        userJList.setAlignmentX(JSplitPane.RIGHT_ALIGNMENT);
+        messagesAndUsersPane.setDividerLocation(0.8);
+        pane.add(messagesAndUsersPane, BorderLayout.CENTER);
         JPanel commitLine = new JPanel(new BorderLayout());
         commitLine.add(textField, BorderLayout.CENTER);
-        commitLine.add(send, BorderLayout.EAST);
+        commitLine.add(sendButton, BorderLayout.EAST);
         pane.add(commitLine, BorderLayout.SOUTH);
 
         return pane;
@@ -126,6 +147,7 @@ public final class GuiClient {
     public void show() {
         try {
             SwingUtilities.invokeAndWait(() -> frame.setVisible(true));
+            messagesAndUsersPane.setDividerLocation(0.6);
             System.out.printf("%s  - %s", System.nanoTime(), "After invoke and wait");
         } catch (InterruptedException | InvocationTargetException e) {
             e.printStackTrace();
