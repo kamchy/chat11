@@ -2,13 +2,17 @@ package client;
 
 import commom.Message;
 import commom.User;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class Client {
 
@@ -23,36 +27,35 @@ public class Client {
     }
 
     public static void startGuiClientWith(String host, String port, String username) {
-        BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
-        OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
-        SimpleServerProxy simpleServerProxy = new SimpleServerProxy(outputMessageHandler);
-        GuiClient gc = new GuiClient(host, port, username, simpleServerProxy);
-        gc.show();
-        startSendREceive(host, port,  simpleServerProxy, outputMessageHandler, null);
+        startThreadsAndClientFor(host, port, username, (messageQueue) -> new GuiClient(host, port, username, messageQueue));
     }
 
     public static void startClientWith(String host, String port, String username) {
+        startThreadsAndClientFor(host, port, username, (messageQueue) -> new ConsoleClient(username, messageQueue));
+    }
+
+    private static void startThreadsAndClientFor(String host, String port, String username, Function<MessageQueue, LoopingConsumer> consumerFactory) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
-        OutputMessageHandler outputMessageHandler = new ConsoleConsumer(inQueue, new User(username));
-        Consumer<Message> incomingMessageHandler = new ConsoleReceiverHandler();
-        InputLoop inputLoop = new ConsoleLoop();
-        startSendREceive(host, port, incomingMessageHandler, outputMessageHandler, inputLoop);
+        User user = new User(username);
+        var messageQueue = new MessageQueue(inQueue, user);
+        startSendReceive(host, port,  consumerFactory.apply(messageQueue), messageQueue);
+
     }
 
 
-    private static void startSendREceive(String host, String port, Consumer<Message> incomingMessageHandler,
-                                         OutputMessageHandler outputMessageHandler, InputLoop inputLoop) {
+
+    private static void startSendReceive(String host, String port,
+                                         LoopingConsumer loopingConsumer,
+                                         Supplier<Message> outputMessageHandler) {
         try (Socket s = new Socket(host, Integer.parseInt(port))){
-            var rt = new Thread(new Receiver(s.getInputStream(), incomingMessageHandler));
+            var rt = new Thread(new Receiver(s.getInputStream(), loopingConsumer));
             rt.start();
 
 
             var st = new Thread(new Sender(s.getOutputStream(), outputMessageHandler));
             st.start();
 
-            if (inputLoop != null) {
-                inputLoop.loop(outputMessageHandler);
-            }
+            loopingConsumer.loop();
 
             st.join();
             rt.join();
@@ -62,16 +65,12 @@ public class Client {
     }
 
 
-    interface  InputLoop {
-        void loop(OutputMessageHandler outputMessageHandler);
+
+    interface LoopingConsumer extends InputLoop, Consumer<Message> {}
+    private interface  InputLoop {
+        void loop();
     }
 
-    interface OutputMessageHandler {
-        void onString(String s);
-        BlockingQueue<Message> getQueue();
-
-        void disconnect(String username);
-    }
 
     private static final class Receiver implements Runnable {
 
@@ -99,13 +98,13 @@ public class Client {
     }
 
     private static final class Sender implements Runnable {
-        private final BlockingQueue<Message> blockingQueue;
+        private final Supplier<Message> supplier;
         private OutputStream oss;
-        private static Logger logger = Logger.getLogger(Sender.class.getName());
+        private static Logger logger = LoggerFactory.getLogger(Sender.class);
 
-        Sender(OutputStream os, OutputMessageHandler consumer) {
+        Sender(OutputStream os, Supplier<Message> messageSupplier) {
             this.oss = os;
-            this.blockingQueue = consumer.getQueue();
+            this.supplier = messageSupplier;
         }
 
         @Override
@@ -115,7 +114,7 @@ public class Client {
             try (var oss = new ObjectOutputStream(this.oss)) {
                 while (true) {
                     logger.info("Sender waits...");
-                    Message obk = blockingQueue.take();
+                    Message obk = supplier.get();
                     logger.info("Sender took from queue: " + obk);
                     if (obk.getType().equals(Message.Type.DISCONNECT)) {
                         logger.info("Sending disconnect mesage!!!");
@@ -123,13 +122,84 @@ public class Client {
                     oss.writeObject(obk);
                     oss.flush();
                 }
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 System.err.println("Sender exception: " + e.getMessage());
             }
         }
     }
 
-    private static class ConsoleReceiverHandler implements Consumer<Message> {
+
+
+    private static class MessageQueue implements Consumer<Message>, Supplier<Message> {
+
+        private final BlockingQueue<Message> q;
+        private final User self;
+        private boolean exited = false;
+        private Logger logger = LoggerFactory.getLogger(MessageQueue.class);
+
+        MessageQueue(BlockingQueue<Message> inQueue, User self) {
+            this.q = inQueue;
+            this.self = self;
+            try {
+                q.put(Message.createConnectMessage(self));
+            } catch (InterruptedException e) {
+                System.err.print("cannot send connect message");
+            }
+        }
+
+        @Override
+        public void accept(Message message) {
+            try {
+                if (!exited) {
+                    q.put(message);
+                    exited =  message.getType().equals(Message.Type.DISCONNECT);
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        @NotNull
+        @Override
+        public Consumer<Message> andThen(@NotNull Consumer<? super Message> after) {
+            return null;
+        }
+
+        @Override
+        public Message get() {
+            try {
+                return q.take();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+    }
+
+    private static class ConsoleClient implements LoopingConsumer {
+
+        private final User user;
+        private final Consumer<Message> messageConsumer;
+
+        public ConsoleClient(String username, Consumer<Message> typedMessageConsumer) {
+            this.user = new User(username);
+            this.messageConsumer = typedMessageConsumer;
+        }
+
+        @Override
+        public void loop() {
+            try(BufferedReader r = new BufferedReader(new InputStreamReader(System.in))) {
+                var line = r.readLine();
+                while (!line.equals(INPUT_TERMINAL)) {
+                    messageConsumer.accept(Message.createMessage(line, user));
+                    line = r.readLine();
+                }
+                messageConsumer.accept(Message.createDisonnectMessage(user));
+            } catch (IOException e) {
+                System.err.print("Exception: " + e.getMessage());
+            }
+        }
         private void showMessage(String format, Object...args) {
             System.out.format(format + "\n", args);
         }
@@ -146,129 +216,9 @@ public class Client {
                 after.accept(message);
             };
         }
+
     }
 
-    private static class ConsoleConsumer implements OutputMessageHandler {
 
-        private final BlockingQueue<Message> q;
-        private final User self;
-        private boolean exited = false;
-        private Logger logger = Logger.getLogger(ConsoleConsumer.class.getName());
-
-        ConsoleConsumer(BlockingQueue<Message> inQueue, User self) {
-            this.q = inQueue;
-            this.self = self;
-            try {
-                q.put(Message.createConnectMessage(self));
-                q.put(Message.createMessage("hello", self));
-            } catch (InterruptedException e) {
-                System.err.print("cannot send connect message");
-            }
-        }
-
-        @Override
-        public void onString(String s) {
-            try {
-                if (s.equals(INPUT_TERMINAL)) {
-                    q.put(Message.createDisonnectMessage(self));
-                    System.out.print("No more input would be sent from user " + self );
-                    exited = true;
-                } else {
-                    if (!exited) {
-                        q.put(Message.createMessage(s, self));
-                    }
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public BlockingQueue<Message> getQueue() {
-            return q;
-        }
-
-        @Override
-        public void disconnect(String username) {
-            logger.info("Disconnect in ConsoleConsumer with username" + username);
-            onString(INPUT_TERMINAL);
-        }
-    }
-
-    private static class ConsoleLoop implements InputLoop {
-
-        @Override
-        public void loop(OutputMessageHandler handler) {
-            try(BufferedReader r = new BufferedReader(new InputStreamReader(System.in))) {
-                var line = r.readLine();
-                while (!line.equals(INPUT_TERMINAL)) {
-                    handler.onString(line);
-                    line = r.readLine();
-                }
-            } catch (IOException e) {
-                System.out.print("Exception: " + e.getMessage());
-            }
-        }
-    }
-
-    private static class SimpleServerProxy implements GuiClient.ServerProxy, Consumer<Message> {
-        private final OutputMessageHandler outputHandler;
-        private Consumer<Message> lineCallback;
-        private Consumer<String> removeClientCallback;
-        private Consumer<String> addClientCallback;
-        private Logger logger = Logger.getLogger(SimpleServerProxy.class.getName());
-
-        public SimpleServerProxy(OutputMessageHandler outputMessageHandler) {
-            this.outputHandler = outputMessageHandler;
-        }
-
-        @Override
-        public void send(String text) {
-            outputHandler.onString(text);
-        }
-
-        @Override
-        public void setAddLineCallback(Consumer<Message> lineConsumer) {
-            this.lineCallback = lineConsumer;
-
-        }
-
-        @Override
-        public void setAddClientConsumer(Consumer<String> clientConsumer) {
-            this.addClientCallback = clientConsumer;
-        }
-
-        @Override
-        public void setRemoveClientConsumer(Consumer<String> clientConsumer) {
-            this.removeClientCallback = clientConsumer;
-        }
-
-        @Override
-        public void disconnect(String username) {
-            logger.info("Proxy - disconnecting with username " + username);
-            outputHandler.disconnect(username);
-        }
-
-        @Override
-        public void accept(Message message) {
-            switch (message.getType()) {
-                case MESSAGE:
-                case INVALID:
-                    lineCallback.accept(message);
-                    break;
-                case CONNECT:
-                    addClientCallback.accept(message.getUser().getName());
-                    break;
-                case DISCONNECT:
-                    removeClientCallback.accept(message.getUser().getName());
-                    break;
-            }
-        }
-
-        @Override
-        public Consumer<Message> andThen(Consumer<? super Message> after) {
-            throw new UnsupportedOperationException();
-        }
-    }
 }
 

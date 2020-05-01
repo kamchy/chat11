@@ -11,7 +11,6 @@ public class Main {
                     port = Integer.parseInt(args[1]);
                 }
                 ThreadedServer.startServerAtPort(port);
-
             } else if (option.startsWith("-c")) {
                 var host = args[1];
                 var port = args[2];
@@ -25,7 +24,10 @@ public class Main {
                 System.out.println("Invalid options");
             }
         } catch (Exception e) {
-            System.out.printf("Usage: [one of]\njava -jar chat11.jar -s [port]\n java -jar chat11.jar -c host port username\n");
+            e.printStackTrace();
+            System.out.printf("Usage: [one of]\njava -jar chat11.jar -s [port]\n" +
+                    "java -jar chat11.jar -c host port username\n" +
+                    "java -jar chat11.jar -cg host port username\n");
             System.exit(0);
         }
      }

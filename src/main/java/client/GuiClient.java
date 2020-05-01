@@ -1,6 +1,9 @@
 package client;
 
 import commom.Message;
+import commom.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,14 +13,13 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 
-public final class GuiClient {
+public final class GuiClient implements Client.LoopingConsumer {
     private static final String TITLE_FORMAT = "%s:%s - %s";
-    public static final int WIDTH = 400;
-    public static final int HEIGHT = 300;
-    public static final Color BGCOLOR = Color.getColor("fafa00");
+    private static final int WIDTH = 400;
+    private static final int HEIGHT = 300;
+    private static final Color COLOR_TEXTAREA_BG = Color.getColor("fafa00");
     private final String host;
     private final String port;
     private final String username;
@@ -25,32 +27,31 @@ public final class GuiClient {
     private final JTextArea textarea = new JTextArea();
     private final JTextField textField = new JTextField();
     private final JScrollPane scrollPaneWithArea = new JScrollPane(textarea);
-    private final JButton send = new JButton("Send");
-    private final ServerProxy proxy;
-    private Logger logger = Logger.getLogger(GuiClient.class.getName());
+    private final JButton sendButton = new JButton("Send");
+    private final Consumer<Message> messageConsumer;
+    private final DefaultListModel<User> userListModel  = new DefaultListModel<>();
+    private final JList<User> userJList = new JList<>(userListModel);
+    private final JSplitPane messagesAndUsersPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 
-    interface  ServerProxy {
-        void send(String text);
-        void setAddLineCallback(Consumer<Message> lineConsumer);
-        void setAddClientConsumer(Consumer<String> clientConsumer);
-        void setRemoveClientConsumer(Consumer<String> clientConsumer);
-        void disconnect(String username);
-    }
 
-    public GuiClient(String host, String port, String username, ServerProxy proxy) {
+    private final Logger logger = LoggerFactory.getLogger(GuiClient.class);
+
+
+    public GuiClient(String host, String port, String username, Consumer<Message> messageConsumer) {
         this.host = host;
         this.port = port;
         this.username = username;
-        this.proxy = proxy;
+        this.messageConsumer = messageConsumer;
 
         this.frame = new JFrame();
 
         frame.setTitle(String.format(TITLE_FORMAT, host, port, username));
+        frame.setIconImage(new ImageIcon(getClass().getResource("icon.png")).getImage());
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                disconnect(proxy, username);
+                messageConsumer.accept(Message.createDisonnectMessage(new User(username)));
             }
 
             @Override
@@ -62,11 +63,7 @@ public final class GuiClient {
         frame.setSize(new Dimension(WIDTH, HEIGHT));
         frame.setContentPane(createContentPane());
         configureComponents();
-    }
 
-    private void disconnect(ServerProxy proxy, String username) {
-        logger.info("closing window");
-        proxy.disconnect(username);
     }
 
     private void addToTextArea(String line) {
@@ -89,10 +86,25 @@ public final class GuiClient {
                 }
             }
         });
-        send.addActionListener((e) -> sendTextToServer());
-        proxy.setAddLineCallback(formatMessage(this::addToTextArea));
-        proxy.setAddClientConsumer(addToTextAreaWith("Client added: "));
-        proxy.setRemoveClientConsumer(addToTextAreaWith("Client removed: "));
+        sendButton.addActionListener((e) -> sendTextToServer());
+        userJList.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> new JLabel(value.getName()));
+    }
+
+
+    @Override
+    public void accept(Message message) {
+        switch (message.getType()) {
+            case MESSAGE:
+            case INVALID:
+                formatMessage(this::addToTextArea).accept(message);
+                break;
+            case CONNECT:
+                userListModel.addElement(message.getUser());
+                break;
+            case DISCONNECT:
+                userListModel.removeElement(message.getUser());
+                break;
+        }
     }
 
     private Consumer<Message> formatMessage(Consumer<String> stringConsumer) {
@@ -102,7 +114,7 @@ public final class GuiClient {
     }
 
     private void sendTextToServer() {
-        proxy.send(textField.getText());
+        messageConsumer.accept(Message.createMessage(textField.getText(), new User(username)));
         textField.setText("");
     }
 
@@ -110,11 +122,19 @@ public final class GuiClient {
         var pane = new JPanel();
         pane.setLayout(new BorderLayout());
         textarea.setEditable(false);
-        textarea.setBackground(BGCOLOR);
-        pane.add(scrollPaneWithArea, BorderLayout.CENTER);
+        textarea.setBackground(COLOR_TEXTAREA_BG);
+        userJList.setBackground(COLOR_TEXTAREA_BG);
+
+
+        messagesAndUsersPane.add(scrollPaneWithArea);
+        scrollPaneWithArea.setAlignmentX(JSplitPane.CENTER_ALIGNMENT);
+        messagesAndUsersPane.add(userJList);
+        userJList.setAlignmentX(JSplitPane.RIGHT_ALIGNMENT);
+        messagesAndUsersPane.setDividerLocation(0.8);
+        pane.add(messagesAndUsersPane, BorderLayout.CENTER);
         JPanel commitLine = new JPanel(new BorderLayout());
         commitLine.add(textField, BorderLayout.CENTER);
-        commitLine.add(send, BorderLayout.EAST);
+        commitLine.add(sendButton, BorderLayout.EAST);
         pane.add(commitLine, BorderLayout.SOUTH);
 
         return pane;
@@ -122,13 +142,18 @@ public final class GuiClient {
 
 
 
-    public void show() {
+    private void show() {
         try {
             SwingUtilities.invokeAndWait(() -> frame.setVisible(true));
+            messagesAndUsersPane.setDividerLocation(0.6);
             System.out.printf("%s  - %s", System.nanoTime(), "After invoke and wait");
         } catch (InterruptedException | InvocationTargetException e) {
             e.printStackTrace();
         }
     }
 
+    @Override
+    public void loop() {
+        show();
+    }
 }
