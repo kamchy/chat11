@@ -73,7 +73,7 @@ public class Client {
 
 
     private static final class Receiver implements Runnable {
-
+        private static final Logger logger = LoggerFactory.getLogger("client");
         private final Consumer<Message> handler;
         private InputStream is;
 
@@ -87,10 +87,11 @@ public class Client {
             try (var iss = new ObjectInputStream(this.is)) {
                 while (true) {
                     var m = (Message) iss.readObject();
+                    logger.info(String.format("[%s] %s", m.getUser().getName(), m.getContent()));
                     handler.accept(m);
                 }
             } catch (IOException | ClassNotFoundException e) {
-                System.out.println("Exception when running receiver: " + e.getMessage());
+                logger.error("Exception when running receiver: " + e.getMessage());
             }
 
         }
@@ -113,17 +114,13 @@ public class Client {
 
             try (var oss = new ObjectOutputStream(this.oss)) {
                 while (true) {
-                    logger.info("Sender waits...");
                     Message obk = supplier.get();
-                    logger.info("Sender took from queue: " + obk);
-                    if (obk.getType().equals(Message.Type.DISCONNECT)) {
-                        logger.info("Sending disconnect mesage!!!");
-                    }
+                    logger.info(String.format("[%s] %s ", obk.getUser().getName(), obk.getContent()));
                     oss.writeObject(obk);
                     oss.flush();
                 }
             } catch (IOException e) {
-                System.err.println("Sender exception: " + e.getMessage());
+                logger.error("Sender exception: " + e.getMessage());
             }
         }
     }
@@ -143,7 +140,7 @@ public class Client {
             try {
                 q.put(Message.createConnectMessage(self));
             } catch (InterruptedException e) {
-                System.err.print("cannot send connect message");
+                logger.error("cannot send connect message");
             }
         }
 

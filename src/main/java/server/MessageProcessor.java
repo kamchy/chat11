@@ -14,7 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 
 public class MessageProcessor implements  Runnable{
-    private static final Logger logger = LoggerFactory.getLogger(MessageProcessor.class);
+    private static final Logger logger = LoggerFactory.getLogger("server");
     private final BlockingQueue<ServerMessage> messageQueue;
     private final Map<UUID, ServerUser> userMap = new TreeMap<>();
 
@@ -24,7 +24,6 @@ public class MessageProcessor implements  Runnable{
 
     synchronized  UUID addChannel(OutputStream outputStream) throws IOException {
         var uuid = UUID.randomUUID();
-        logger.info("Add null user with id: " + uuid);
         userMap.put(uuid, new ServerUser(null, uuid, new ObjectOutputStream(outputStream)));
         return uuid;
     }
@@ -34,7 +33,6 @@ public class MessageProcessor implements  Runnable{
         while (true) {
             try {
                 var msg = messageQueue.take();
-                logger.info("Loop:  " + msg);
                 var userMessage = msg.getMessage();
                 switch (msg.getMessage().getType()) {
                     case CONNECT:
@@ -46,7 +44,7 @@ public class MessageProcessor implements  Runnable{
                         send(msg);
                         break;
                     case DISCONNECT:
-                        logger.info("Got disconnect message from user "+ userMessage.getUser());
+                        logger.info("Disconnect: "+ userMessage.getUser());
                         send(msg);
                         removeUser(msg.getUuid());
                         break;
@@ -96,7 +94,6 @@ public class MessageProcessor implements  Runnable{
     }
 
     private synchronized void send(ServerMessage msg) {
-        logger.info("Sending " + msg);
         userMap.values().forEach(su -> {
             try {
                 ServerUser serverUser = userMap.get(msg.getUuid());
@@ -110,7 +107,7 @@ public class MessageProcessor implements  Runnable{
     }
 
     private void sendToUser(ServerUser su, Message msg) throws IOException {
-        logger.info("Sending message " + msg + " to user " + su);
+        logger.info(String.format("sending to %s: [%s] %s ", su.getUser().get().getName(), msg.getUser().getName(), msg.getContent()));
         su.getOs().writeObject(msg);
         su.getOs().flush();
     }

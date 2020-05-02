@@ -34,7 +34,7 @@ public final class GuiClient implements Client.LoopingConsumer {
     private final JSplitPane messagesAndUsersPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 
 
-    private final Logger logger = LoggerFactory.getLogger(GuiClient.class);
+    private final Logger logger = LoggerFactory.getLogger("client");
 
 
     public GuiClient(String host, String port, String username, Consumer<Message> messageConsumer) {
@@ -93,6 +93,7 @@ public final class GuiClient implements Client.LoopingConsumer {
 
     @Override
     public void accept(Message message) {
+        logger.info(message.toString());
         switch (message.getType()) {
             case MESSAGE:
             case INVALID:
@@ -146,7 +147,6 @@ public final class GuiClient implements Client.LoopingConsumer {
         try {
             SwingUtilities.invokeAndWait(() -> frame.setVisible(true));
             messagesAndUsersPane.setDividerLocation(0.6);
-            System.out.printf("%s  - %s", System.nanoTime(), "After invoke and wait");
         } catch (InterruptedException | InvocationTargetException e) {
             e.printStackTrace();
         }

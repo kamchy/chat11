@@ -9,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class ThreadedServer implements Runnable{
-    private static Logger logger = LoggerFactory.getLogger(ThreadedServer.class);
+    private static Logger logger = LoggerFactory.getLogger("server");
     private final int port;
 
 
@@ -24,14 +24,11 @@ public class ThreadedServer implements Runnable{
         mp.start();
 
         try {
-
             var ss = new ServerSocket(this.port);
             logger.info("Server socket created on port " + this.port) ;
             while (true) {
                 var conn = ss.accept();
-                logger.info("accepted  connection "  + conn.getInetAddress()) ;
                 var clientId = messageProcessor.addChannel(conn.getOutputStream());
-                logger.info("Connected " + clientId) ;
                 var cli = new ClientThread(conn.getInputStream(), messagesFromClients, clientId);
                 cli.start();
             }
@@ -41,7 +38,6 @@ public class ThreadedServer implements Runnable{
     }
 
     private static ThreadedServer create(int port) {
-        logger.info("Created server on " + port);
         return new ThreadedServer(port);
     }
 

@@ -19,7 +19,7 @@ class ClientThread extends Thread {
     private final InputStream ins;
     private final BlockingQueue<server.ServerMessage> serverMessages;
     private final UUID uuid;
-    private static Logger logger = LoggerFactory.getLogger(ClientThread.class);
+    private static Logger logger = LoggerFactory.getLogger("server");
 
     ClientThread(InputStream inputStream, BlockingQueue<server.ServerMessage> messagesFromClients, UUID uuid) {
         this.ins = inputStream;
@@ -34,14 +34,13 @@ class ClientThread extends Thread {
                 Object o = in.readObject();
                 if (o instanceof Message) {
                     Message message = (Message) o;
-                    logger.info(String.format("%s got message - %s", uuid, message));
                     synchronized (serverMessages) {
                         serverMessages.offer(new server.ServerMessage(uuid, message));
                     }
                 }
             }
         } catch (IOException | ClassNotFoundException e) {
-           logger.info(String.format("Client thread ends: %s\n", e));
+           logger.info(String.format("Client disconnected"));
         }
 
     }
