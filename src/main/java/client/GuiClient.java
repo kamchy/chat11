@@ -31,6 +31,7 @@ public final class GuiClient implements Client.LoopingConsumer {
     private final JButton sendButton = new JButton("Send");
     private final Consumer<Message> messageConsumer;
     private final DefaultListModel<User> userListModel  = new DefaultListModel<>();
+    private final UserListCellRenderer userListCellRenderer = new UserListCellRenderer();
     private final JList<User> userJList = new JList<>(userListModel);
     private final JSplitPane messagesAndUsersPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 
@@ -74,10 +75,6 @@ public final class GuiClient implements Client.LoopingConsumer {
         });
     }
 
-    private Consumer<String> addToTextAreaWith(String prefix) {
-        return (line) -> addToTextArea(prefix + line);
-    }
-
     private void configureComponents() {
         textField.addKeyListener(new KeyAdapter() {
             @Override
@@ -88,7 +85,8 @@ public final class GuiClient implements Client.LoopingConsumer {
             }
         });
         sendButton.addActionListener((e) -> sendTextToServer());
-        userJList.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> new JLabel(value.getName()));
+        userJList.setCellRenderer(userListCellRenderer);
+        ;
     }
 
 
@@ -109,7 +107,10 @@ public final class GuiClient implements Client.LoopingConsumer {
         SwingUtilities.invokeLater(() -> {
             userListModel.removeAllElements();
             userListModel.addAll(userlist.getUsers());
-            frame.setTitle(formatTitle(userlist.currentUser().orElseGet(() -> User.EMPTY)));
+            User currentUser = userlist.currentUser().orElseGet(() -> User.EMPTY);
+            frame.setTitle(formatTitle(currentUser));
+            userListCellRenderer.updateCurrentUser(currentUser);
+
         });
     }
 
@@ -150,8 +151,6 @@ public final class GuiClient implements Client.LoopingConsumer {
         return pane;
     }
 
-
-
     private void show() {
         try {
             SwingUtilities.invokeAndWait(() -> frame.setVisible(true));
@@ -164,5 +163,20 @@ public final class GuiClient implements Client.LoopingConsumer {
     @Override
     public void loop() {
         show();
+    }
+
+    private class UserListCellRenderer implements ListCellRenderer<User> {
+        private User current;
+        @Override
+        public Component getListCellRendererComponent(JList<? extends User> list, User value, int index, boolean isSelected, boolean cellHasFocus) {
+             var la =  new JLabel();
+             la.setForeground(value.equals(current) ? Color.red  : Color.black);
+             la.setText(value.getName());
+             return la;
+        }
+
+        public void updateCurrentUser(User currentUser) {
+            this.current = currentUser;
+        }
     }
 }

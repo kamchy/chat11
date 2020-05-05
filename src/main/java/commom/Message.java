@@ -3,7 +3,7 @@ package commom;
 import java.io.Serializable;
 import java.util.Objects;
 
-public final class Message implements Serializable {
+public class Message implements Serializable {
 
     private final Type type;
     private final String content;
