@@ -8,11 +8,18 @@ public final class Message implements Serializable {
     private final Type type;
     private final String content;
     private final User user;
+    private UserList userlist;
 
-    public Message(Type valueOf, String content, User user) {
+    private Message(Type valueOf, String content, User user) {
         this.type = valueOf;
         this.content = content;
         this.user = user;
+        this.userlist = null;
+    }
+
+    private  Message(UserList userList, User sender) {
+        this(Type.USERLIST, "", userList.currentUser().orElseGet(() -> User.EMPTY));
+        this.userlist = userList;
     }
 
     public static Message createConnectMessage(User user) {
@@ -27,9 +34,12 @@ public final class Message implements Serializable {
         return new Message(Type.MESSAGE, message, user);
     }
 
+    public static Message createUserListMessage(UserList userList, User source) {
+        return new Message(userList, source);
+    }
 
-    private static Message invalid(String message) {
-        return new Message(Type.INVALID, message, User.EMPTY);
+    public static Message withUser(Message message, User sender) {
+        return message.getType().equals(Type.USERLIST) ? new Message(message.userlist, sender) : new Message(message.getType(), message.getContent(), sender);
     }
 
     public Type getType() {
@@ -53,12 +63,13 @@ public final class Message implements Serializable {
                 '}';
     }
 
-    public Message withUser(User user) {
-        return new Message(type, content, user);
+    public UserList getUserlist() {
+        return userlist;
     }
 
     public enum Type {
-        CONNECT, MESSAGE, DISCONNECT, INVALID
+        CONNECT, MESSAGE, DISCONNECT, USERLIST;
+
     }
 
     @Override
@@ -80,4 +91,5 @@ public final class Message implements Serializable {
         result = 31 * result + (user != null ? user.hashCode() : 0);
         return result;
     }
+
 }

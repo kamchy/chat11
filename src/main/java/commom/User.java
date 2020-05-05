@@ -4,8 +4,7 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public final class User implements Serializable {
-
-    static final User EMPTY = new User("UNKNOWN");
+    public static User EMPTY = new User("EMPTY");
     private String name;
 
     public User(String name) {

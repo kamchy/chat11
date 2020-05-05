@@ -8,24 +8,26 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MessageProcessor implements  Runnable{
     private static final Logger logger = LoggerFactory.getLogger("server");
     private final BlockingQueue<ServerMessage> messageQueue;
-    private final Map<UUID, ServerUser> userMap = new TreeMap<>();
 
-    MessageProcessor(BlockingQueue<ServerMessage> messagesFromClients) {
-        this.messageQueue = messagesFromClients;
+
+    private final ServerUserRepository userRepository;
+    private AtomicInteger counter = new AtomicInteger(1);
+
+    MessageProcessor(BlockingQueue<ServerMessage> messagesFromClients, ServerUserRepository userRepository) {
+        this.messageQueue = Objects.requireNonNull(messagesFromClients);
+        this.userRepository = Objects.requireNonNull(userRepository);
     }
 
     synchronized  UUID addChannel(OutputStream outputStream) throws IOException {
-        var uuid = UUID.randomUUID();
-        userMap.put(uuid, new ServerUser(null, uuid, new ObjectOutputStream(outputStream)));
-        return uuid;
+        return userRepository.addChannel(outputStream);
     }
 
     @Override
@@ -37,19 +39,15 @@ public class MessageProcessor implements  Runnable{
                 switch (msg.getMessage().getType()) {
                     case CONNECT:
                         addUser(msg);
-                        sendExitsingUsers(msg.getUuid());
-                        send(msg);
+                        sendExitsingUsers();
                         break;
                     case MESSAGE:
-                        send(msg);
+                        sendToAll(msg);
                         break;
                     case DISCONNECT:
                         logger.info("Disconnect: "+ userMessage.getUser());
-                        send(msg);
                         removeUser(msg.getUuid());
-                        break;
-                    case INVALID:
-                        logger.warn("Invalid message received: " + userMessage.getContent());
+                        sendExitsingUsers();
                         break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + userMessage.getType());
@@ -61,64 +59,33 @@ public class MessageProcessor implements  Runnable{
         }
     }
 
-    private void sendExitsingUsers(UUID uuid) {
-        var senderUser = userMap.get(uuid);
-        senderUser.getUser().ifPresent(sender -> {
-            for (ServerUser exisingUser : userMap.values()) {
-                exisingUser.getUser().ifPresent(existing ->{
-                    if (!existing.equals(sender)) {
-                        try {
-                            sendToUser(senderUser, Message.createConnectMessage(exisingUser.getUser().get()));
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
-
-            }
-        }) ;
-
-    }
-
-    private synchronized void addUser(ServerMessage msg) {
-        var userMsg = msg.getMessage();
-        var uuid = msg.getUuid();
-        if (userMap.containsKey(uuid)) {
-            var userWithUpdatedName = withUpdatedName(userMsg.getUser());
-            userMap.get(uuid).updateUser(userWithUpdatedName);
-        }
-    }
-
-    synchronized  private void removeUser(UUID uuid) {
-        userMap.remove(uuid);
-    }
-
-    private synchronized void send(ServerMessage msg) {
-        userMap.values().forEach(su -> {
-            try {
-                ServerUser serverUser = userMap.get(msg.getUuid());
-                var sourceUser = serverUser != null ? serverUser.getUser().orElse(msg.getMessage().getUser()) : msg.getMessage().getUser();
-                // overwrite user if exists in map (might not exist if was removed, then e original user (ugly)
-                sendToUser(su, msg.withUser(sourceUser));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    private void sendExitsingUsers() {
+        userRepository.forEachChannel((uuid, oos) -> {
+            var ul = userRepository.getUserList(uuid);
+            sendToUser(oos, Message.createUserListMessage(ul, ul.currentUser().orElse(User.EMPTY)));
         });
     }
 
-    private void sendToUser(ServerUser su, Message msg) throws IOException {
-        logger.info(String.format("sending to %s: [%s] %s ", su.getUser().get().getName(), msg.getUser().getName(), msg.getContent()));
-        su.getOs().writeObject(msg);
-        su.getOs().flush();
+    private synchronized void addUser(ServerMessage msg) {
+        userRepository.addUser(msg.getUuid(), msg.getMessage().getUser());
     }
 
-    private User withUpdatedName(User user) {
-        var cnt = userMap.values().stream()
-                .filter(su ->
-                        su.getUser().isPresent() &&
-                        su.getUser().get().getName().startsWith(user.getName()))
-                .count();
-        return cnt == 0 ? user : new User(user.getName() + "_" + cnt);
+    synchronized  private void removeUser(UUID uuid) {
+        userRepository.remove(uuid);
     }
 
+    private void sendToAll(ServerMessage msg) {
+        var sender = userRepository.getUser(msg.getUuid());
+        userRepository.forEachChannel((uuid, oos) ->
+                sendToUser(oos, Message.withUser(msg.getMessage(), sender)));
+    }
+
+    private void sendToUser(ObjectOutputStream channel, Message msg) {
+        try {
+            channel.writeObject(msg);
+            channel.flush();
+        } catch (IOException e) {
+            logger.error("Could not send: " + msg);
+        }
+    }
 }

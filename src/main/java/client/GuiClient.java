@@ -2,6 +2,7 @@ package client;
 
 import commom.Message;
 import commom.User;
+import commom.UserList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,16 +97,25 @@ public final class GuiClient implements Client.LoopingConsumer {
         logger.info(message.toString());
         switch (message.getType()) {
             case MESSAGE:
-            case INVALID:
                 formatMessage(this::addToTextArea).accept(message);
                 break;
-            case CONNECT:
-                userListModel.addElement(message.getUser());
-                break;
-            case DISCONNECT:
-                userListModel.removeElement(message.getUser());
-                break;
+            case USERLIST:
+                updateUsers(message.getUserlist());
+
         }
+    }
+
+    private void updateUsers(UserList userlist) {
+        SwingUtilities.invokeLater(() -> {
+            userListModel.removeAllElements();
+            userListModel.addAll(userlist.getUsers());
+            frame.setTitle(formatTitle(userlist.currentUser().orElseGet(() -> User.EMPTY)));
+        });
+    }
+
+    private String formatTitle(User u) {
+        return "Chat11 - " + u.getName();
+
     }
 
     private Consumer<Message> formatMessage(Consumer<String> stringConsumer) {
@@ -125,7 +135,6 @@ public final class GuiClient implements Client.LoopingConsumer {
         textarea.setEditable(false);
         textarea.setBackground(COLOR_TEXTAREA_BG);
         userJList.setBackground(COLOR_TEXTAREA_BG);
-
 
         messagesAndUsersPane.add(scrollPaneWithArea);
         scrollPaneWithArea.setAlignmentX(JSplitPane.CENTER_ALIGNMENT);

@@ -1,7 +1,6 @@
 package server;
 
 import commom.Message;
-import commom.User;
 
 import java.util.UUID;
 
@@ -20,14 +19,6 @@ final class ServerMessage {
 
     UUID getUuid() {
         return uuid;
-    }
-
-    Message withUser(User user) {
-        if (message.getUser().equals(user)) {
-            return message;
-        } else {
-            return new Message(message.getType(), message.getContent(), user);
-        }
     }
 
     @Override

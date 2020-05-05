@@ -19,7 +19,8 @@ public class ThreadedServer implements Runnable{
 
     public void run() {
         BlockingQueue<ServerMessage> messagesFromClients = new LinkedBlockingQueue<>();
-        MessageProcessor messageProcessor = new MessageProcessor(messagesFromClients);
+        ServerUserRepository userRepository = new ServerUserRepository();
+        MessageProcessor messageProcessor = new MessageProcessor(messagesFromClients, userRepository);
         var mp = new Thread(messageProcessor);
         mp.start();
 
