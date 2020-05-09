@@ -17,7 +17,7 @@
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%msg%n</pattern>
+            <pattern> %logger{10} [%file:%line] %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -28,7 +28,7 @@
         <appender-ref ref="SERVER" />
     </logger>
 
-    <root level="OFF" >
+    <root level="INFO" >
         <appender-ref ref="CONSOLE" />
     </root>
 </configuration>

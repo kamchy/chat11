@@ -49,6 +49,10 @@ public class MessageProcessor implements  Runnable{
                         removeUser(msg.getUuid());
                         sendExitsingUsers();
                         break;
+                    case STATUS:
+                        updateUser(msg);
+                        sendExitsingUsers();
+                        break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + userMessage.getType());
                 }
@@ -57,6 +61,10 @@ public class MessageProcessor implements  Runnable{
             }
 
         }
+    }
+
+    private void updateUser(ServerMessage msg) {
+        userRepository.updateUser(msg.getUuid(), msg.getMessage().getUser());
     }
 
     private void sendExitsingUsers() {

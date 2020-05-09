@@ -4,11 +4,16 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public final class User implements Serializable {
-    public static User EMPTY = new User("EMPTY");
-    private String name;
+    public static User EMPTY = new User("EMPTY", "");
+    private final String name;
+    private final String status;
 
     public User(String name) {
+        this(name, "");
+    }
+    public User(String name, String status) {
         this.name = name;
+        this.status = status;
     }
 
     public String getName() {
@@ -19,6 +24,7 @@ public final class User implements Serializable {
     public String toString() {
         return "User{" +
                 "name='" + name + '\'' +
+                ", status='" + status + '\'' +
                 '}';
     }
 
@@ -29,11 +35,18 @@ public final class User implements Serializable {
 
         User user = (User) o;
 
-        return Objects.equals(name, user.name);
+        if (!Objects.equals(name, user.name)) return false;
+        return Objects.equals(status, user.status);
     }
 
     @Override
     public int hashCode() {
-        return name != null ? name.hashCode() : 0;
+        int result = name != null ? name.hashCode() : 0;
+        result = 31 * result + (status != null ? status.hashCode() : 0);
+        return result;
+    }
+
+    public String getStatus() {
+        return status;
     }
 }

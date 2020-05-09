@@ -42,6 +42,10 @@ public class Message implements Serializable {
         return message.getType().equals(Type.USERLIST) ? new Message(message.userlist, sender) : new Message(message.getType(), message.getContent(), sender);
     }
 
+    public static Message createStatusUpdate(String text, User sender) {
+        return new Message(Type.STATUS, "", sender);
+    }
+
     public Type getType() {
         return type;
     }
@@ -68,8 +72,7 @@ public class Message implements Serializable {
     }
 
     public enum Type {
-        CONNECT, MESSAGE, DISCONNECT, USERLIST;
-
+        CONNECT, MESSAGE, DISCONNECT, USERLIST, STATUS;
     }
 
     @Override

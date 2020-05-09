@@ -23,7 +23,6 @@ public final class GuiClient implements Client.LoopingConsumer {
     private static final Color COLOR_TEXTAREA_BG = Color.getColor("fafa00");
     private final String host;
     private final String port;
-    private final String username;
     private final JFrame frame;
     private final JTextArea textarea = new JTextArea();
     private final JTextField textField = new JTextField();
@@ -37,12 +36,13 @@ public final class GuiClient implements Client.LoopingConsumer {
 
 
     private final Logger logger = LoggerFactory.getLogger("client");
+    private User currentUser;
 
 
     public GuiClient(String host, String port, String username, Consumer<Message> messageConsumer) {
         this.host = host;
         this.port = port;
-        this.username = username;
+        this.currentUser = new User(username);
         this.messageConsumer = messageConsumer;
 
         this.frame = new JFrame();
@@ -107,9 +107,9 @@ public final class GuiClient implements Client.LoopingConsumer {
         SwingUtilities.invokeLater(() -> {
             userListModel.removeAllElements();
             userListModel.addAll(userlist.getUsers());
-            User currentUser = userlist.currentUser().orElseGet(() -> User.EMPTY);
+            this.currentUser = userlist.currentUser().orElseGet(() -> User.EMPTY);
             frame.setTitle(formatTitle(currentUser));
-            userListCellRenderer.updateCurrentUser(currentUser);
+
 
         });
     }
@@ -126,7 +126,7 @@ public final class GuiClient implements Client.LoopingConsumer {
     }
 
     private void sendTextToServer() {
-        messageConsumer.accept(Message.createMessage(textField.getText(), new User(username)));
+        messageConsumer.accept(Message.createMessage(textField.getText(), currentUser));
         textField.setText("");
     }
 
@@ -139,6 +139,7 @@ public final class GuiClient implements Client.LoopingConsumer {
 
         messagesAndUsersPane.add(scrollPaneWithArea);
         scrollPaneWithArea.setAlignmentX(JSplitPane.CENTER_ALIGNMENT);
+
         messagesAndUsersPane.add(userJList);
         userJList.setAlignmentX(JSplitPane.RIGHT_ALIGNMENT);
         messagesAndUsersPane.setDividerLocation(0.8);
@@ -147,6 +148,7 @@ public final class GuiClient implements Client.LoopingConsumer {
         commitLine.add(textField, BorderLayout.CENTER);
         commitLine.add(sendButton, BorderLayout.EAST);
         pane.add(commitLine, BorderLayout.SOUTH);
+        pane.add(createStatusUpdatePanel(), BorderLayout.NORTH);
 
         return pane;
     }
@@ -166,17 +168,45 @@ public final class GuiClient implements Client.LoopingConsumer {
     }
 
     private class UserListCellRenderer implements ListCellRenderer<User> {
-        private User current;
+
         @Override
         public Component getListCellRendererComponent(JList<? extends User> list, User value, int index, boolean isSelected, boolean cellHasFocus) {
-             var la =  new JLabel();
-             la.setForeground(value.equals(current) ? Color.red  : Color.black);
-             la.setText(value.getName());
-             return la;
+            JPanel pa = new JPanel(new BorderLayout());
+            pa.setBorder(BorderFactory.createEmptyBorder(0, 0, 3, 0));
+
+            int baseSize = 12;
+            int smaller = 10;
+            Color currentColor = Color.getHSBColor(0.0f, 0.8f, 0.8f);
+            Color userLabelsFG = value.equals(currentUser) ? currentColor  : Color.black;
+
+            var usernameLabel =  new JLabel();
+            usernameLabel.setForeground(userLabelsFG);
+            usernameLabel.setFont(new Font("SansSerif", Font.PLAIN, baseSize));
+            usernameLabel.setText(value.getName());
+            pa.add(usernameLabel, BorderLayout.NORTH);
+
+            var statusLabel = new JLabel(value.getStatus());
+            statusLabel.setFont(new Font("SansSerif", Font.PLAIN, smaller));
+            statusLabel.setForeground(userLabelsFG);
+            pa.add(statusLabel, BorderLayout.CENTER);
+
+            return pa;
         }
 
-        public void updateCurrentUser(User currentUser) {
-            this.current = currentUser;
-        }
+
+    }
+
+    private JPanel createStatusUpdatePanel ()  {
+        var status = new JTextField(currentUser.getStatus());
+        var setButton = new JButton("Ustaw status");
+        var p = new JPanel(new BorderLayout());
+        p.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+        p.add(status, BorderLayout.CENTER);
+        p.add(setButton, BorderLayout.EAST);
+        setButton.addActionListener(e -> {
+            currentUser = new User(currentUser.getName(), status.getText());
+            messageConsumer.accept(Message.createStatusUpdate(status.getText(), currentUser));
+        });
+        return  p;
     }
 }

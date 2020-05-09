@@ -53,4 +53,8 @@ public class ServerUserRepository {
     public User getUser(UUID uuid) {
         return userMap.getOrDefault(uuid, User.EMPTY);
     }
+
+    public synchronized void updateUser(UUID uuid, User user) {
+        userMap.computeIfPresent(uuid, (uuid1, user1) -> user);
+    }
 }
