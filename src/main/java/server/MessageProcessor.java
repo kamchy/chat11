@@ -45,7 +45,6 @@ public class MessageProcessor implements  Runnable{
                         sendToAll(msg);
                         break;
                     case DISCONNECT:
-                        logger.info("Disconnect: "+ userMessage.getUser());
                         removeUser(msg.getUuid());
                         sendExitsingUsers();
                         break;

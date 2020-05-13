@@ -42,7 +42,7 @@ public class Message implements Serializable {
         return message.getType().equals(Type.USERLIST) ? new Message(message.userlist, sender) : new Message(message.getType(), message.getContent(), sender);
     }
 
-    public static Message createStatusUpdate(String text, User sender) {
+    public static Message createStatusUpdate(User sender) {
         return new Message(Type.STATUS, "", sender);
     }
 

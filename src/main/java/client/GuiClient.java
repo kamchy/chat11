@@ -18,8 +18,8 @@ import java.util.function.Consumer;
 
 public final class GuiClient implements Client.LoopingConsumer {
     private static final String TITLE_FORMAT = "%s:%s - %s";
-    private static final int WIDTH = 400;
-    private static final int HEIGHT = 300;
+    private static final int WIDTH = 600;
+    private static final int HEIGHT = 400;
     private static final Color COLOR_TEXTAREA_BG = Color.getColor("fafa00");
     private final String host;
     private final String port;
@@ -28,6 +28,7 @@ public final class GuiClient implements Client.LoopingConsumer {
     private final JTextField textField = new JTextField();
     private final JScrollPane scrollPaneWithArea = new JScrollPane(textarea);
     private final JButton sendButton = new JButton("Send");
+    private final JButton changeStatusButton = new JButton("Status");
     private final Consumer<Message> messageConsumer;
     private final DefaultListModel<User> userListModel  = new DefaultListModel<>();
     private final UserListCellRenderer userListCellRenderer = new UserListCellRenderer();
@@ -43,7 +44,7 @@ public final class GuiClient implements Client.LoopingConsumer {
         this.host = host;
         this.port = port;
         this.currentUser = new User(username);
-        this.messageConsumer = messageConsumer;
+        this.messageConsumer = loggingConsumer(messageConsumer);
 
         this.frame = new JFrame();
 
@@ -68,6 +69,13 @@ public final class GuiClient implements Client.LoopingConsumer {
 
     }
 
+    private Consumer<Message> loggingConsumer(Consumer<Message> messageConsumer) {
+        return m -> {
+            logger.debug(m.toString());
+            messageConsumer.accept(m);
+        };
+    }
+
     private void addToTextArea(String line) {
         SwingUtilities.invokeLater(() -> {
             textarea.append(line + "\n");
@@ -84,15 +92,15 @@ public final class GuiClient implements Client.LoopingConsumer {
                 }
             }
         });
-        sendButton.addActionListener((e) -> sendTextToServer());
+        sendButton.setAction(Actions.createSendMessageAction(() -> sendTextToServer()));
+        changeStatusButton.setAction(Actions.createChangeStatusAction(() -> updateStatus()));
         userJList.setCellRenderer(userListCellRenderer);
-        ;
+
     }
 
 
     @Override
     public void accept(Message message) {
-        logger.info(message.toString());
         switch (message.getType()) {
             case MESSAGE:
                 formatMessage(this::addToTextArea).accept(message);
@@ -130,6 +138,12 @@ public final class GuiClient implements Client.LoopingConsumer {
         textField.setText("");
     }
 
+    private void updateStatus() {
+        var s = JOptionPane.showInputDialog(frame.getContentPane(), "New status", currentUser.getStatus());
+        currentUser = new User(currentUser.getName(), s);
+        messageConsumer.accept(Message.createStatusUpdate(currentUser));
+    }
+
     private Container createContentPane() {
         var pane = new JPanel();
         pane.setLayout(new BorderLayout());
@@ -146,10 +160,11 @@ public final class GuiClient implements Client.LoopingConsumer {
         pane.add(messagesAndUsersPane, BorderLayout.CENTER);
         JPanel commitLine = new JPanel(new BorderLayout());
         commitLine.add(textField, BorderLayout.CENTER);
-        commitLine.add(sendButton, BorderLayout.EAST);
+        var buttons = new JPanel();
+        buttons.add(sendButton);
+        buttons.add(changeStatusButton);
+        commitLine.add(buttons, BorderLayout.EAST);
         pane.add(commitLine, BorderLayout.SOUTH);
-        pane.add(createStatusUpdatePanel(), BorderLayout.NORTH);
-
         return pane;
     }
 
@@ -172,41 +187,28 @@ public final class GuiClient implements Client.LoopingConsumer {
         @Override
         public Component getListCellRendererComponent(JList<? extends User> list, User value, int index, boolean isSelected, boolean cellHasFocus) {
             JPanel pa = new JPanel(new BorderLayout());
-            pa.setBorder(BorderFactory.createEmptyBorder(0, 0, 3, 0));
+            pa.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
+
 
             int baseSize = 12;
             int smaller = 10;
-            Color currentColor = Color.getHSBColor(0.0f, 0.8f, 0.8f);
-            Color userLabelsFG = value.equals(currentUser) ? currentColor  : Color.black;
+            Color currentColor = Color.getColor("darkgray");
+            Color userLabelsFG = value.equals(currentUser) ? Color.black: currentColor;
+            int fontStyle = value.equals(currentUser) ? Font.BOLD : Font.PLAIN;
 
             var usernameLabel =  new JLabel();
             usernameLabel.setForeground(userLabelsFG);
-            usernameLabel.setFont(new Font("SansSerif", Font.PLAIN, baseSize));
+            usernameLabel.setFont(new Font("SansSerif", fontStyle, baseSize));
             usernameLabel.setText(value.getName());
             pa.add(usernameLabel, BorderLayout.NORTH);
 
             var statusLabel = new JLabel(value.getStatus());
-            statusLabel.setFont(new Font("SansSerif", Font.PLAIN, smaller));
+            statusLabel.setFont(new Font("SansSerif", fontStyle, smaller));
             statusLabel.setForeground(userLabelsFG);
             pa.add(statusLabel, BorderLayout.CENTER);
 
             return pa;
         }
 
-
-    }
-
-    private JPanel createStatusUpdatePanel ()  {
-        var status = new JTextField(currentUser.getStatus());
-        var setButton = new JButton("Ustaw status");
-        var p = new JPanel(new BorderLayout());
-        p.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
-        p.add(status, BorderLayout.CENTER);
-        p.add(setButton, BorderLayout.EAST);
-        setButton.addActionListener(e -> {
-            currentUser = new User(currentUser.getName(), status.getText());
-            messageConsumer.accept(Message.createStatusUpdate(status.getText(), currentUser));
-        });
-        return  p;
     }
 }

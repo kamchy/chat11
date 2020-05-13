@@ -21,14 +21,22 @@
         </encoder>
     </appender>
 
+    <appender name="CONSOLE_X" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern> XX %date --> %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <logger name="client">
-        <appender-ref ref="CLIENT" />
+<!--        <appender-ref ref="CLIENT" />-->
+        <appender-ref ref="CONSOLE_X"/>
     </logger>
+
     <logger name="server">
         <appender-ref ref="SERVER" />
     </logger>
 
-    <root level="INFO" >
+    <root level="none" >
         <appender-ref ref="CONSOLE" />
     </root>
 </configuration>
