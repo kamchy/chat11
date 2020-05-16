@@ -1,0 +1,24 @@
+2020-05-16 12:02:41,118 [Thread-2] server [ThreadedServer.java:29] Server socket created on port 8881
+2020-05-16 12:02:49,521 [MessageProcessor] server [ServerUserRepository.java:29] Added ala
+2020-05-16 12:02:55,167 [MessageProcessor] server [ServerUserRepository.java:36] Removed User{name='ala', status=''}
+2020-05-16 12:02:55,505 [Thread-4] server [ClientThread.java:43] Client disconnected
+2020-05-16 12:10:20,828 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:16:17,445 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:16:27,565 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:16:27,592 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:16:50,564 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:18:30,681 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:18:30,711 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:18:40,390 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:19:33,657 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:31:51,613 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:32:54,090 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:32:54,111 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:32:54,114 [main] server [ServerUserRepository.java:29] Added foo
+2020-05-16 12:33:38,694 [Thread-2] server [ThreadedServer.java:29] Server socket created on port 8881
+2020-05-16 12:33:44,643 [Thread-3] server [ServerUserRepository.java:29] Added ala
+2020-05-16 12:33:50,360 [Thread-3] server [ServerUserRepository.java:29] Added karma
+2020-05-16 12:34:28,727 [Thread-3] server [ServerUserRepository.java:36] Removed User{name='ala', status='rozmawiam'}
+2020-05-16 12:34:29,169 [Thread-4] server [ClientThread.java:43] Client disconnected
+2020-05-16 12:34:32,493 [Thread-3] server [ServerUserRepository.java:36] Removed User{name='karma', status=''}
+2020-05-16 12:34:46,356 [Thread-5] server [ClientThread.java:43] Client disconnected

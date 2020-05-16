@@ -29,30 +29,10 @@ public class MessageProcessor implements  Runnable{
 
     @Override
     public void run() {
-        Thread.currentThread().setName("MessageProcessor");
         while (true) {
             try {
                 var msg = messageQueue.take();
-                var userMessage = msg.getMessage();
-                switch (msg.getMessage().getType()) {
-                    case CONNECT:
-                        addUser(msg);
-                        sendExitsingUsers();
-                        break;
-                    case MESSAGE:
-                        sendToAll(msg);
-                        break;
-                    case DISCONNECT:
-                        removeUser(msg.getUuid());
-                        sendExitsingUsers();
-                        break;
-                    case STATUS:
-                        updateUser(msg);
-                        sendExitsingUsers();
-                        break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + userMessage.getType());
-                }
+                process(msg);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -60,11 +40,34 @@ public class MessageProcessor implements  Runnable{
         }
     }
 
+    void process(ServerMessage msg) {
+        var userMessage = msg.getMessage();
+        switch (msg.getMessage().getType()) {
+            case CONNECT:
+                addUser(msg);
+                sendExistingUsers();
+                break;
+            case MESSAGE:
+                sendToAll(msg);
+                break;
+            case DISCONNECT:
+                removeUser(msg.getUuid());
+                sendExistingUsers();
+                break;
+            case STATUS:
+                updateUser(msg);
+                sendExistingUsers();
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + userMessage.getType());
+        }
+    }
+
     private void updateUser(ServerMessage msg) {
         userRepository.updateUser(msg.getUuid(), msg.getMessage().getUser());
     }
 
-    private void sendExitsingUsers() {
+    private void sendExistingUsers() {
         userRepository.forEachChannel((uuid, oos) -> {
             var ul = userRepository.getUserList(uuid);
             sendToUser(oos, Message.createUserListMessage(ul, ul.currentUser().orElse(User.EMPTY)));

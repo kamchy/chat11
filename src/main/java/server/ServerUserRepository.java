@@ -30,7 +30,7 @@ public class ServerUserRepository {
     }
 
     public synchronized void forEachChannel(BiConsumer<UUID, ObjectOutputStream> channellFn) {
-        oosMap.entrySet().forEach(e -> channellFn.accept(e.getKey(), e.getValue()));
+        oosMap.forEach(channellFn::accept);
     }
     public synchronized void remove(UUID uuid) {
         logger.info("Removed {}", getUser(uuid));
