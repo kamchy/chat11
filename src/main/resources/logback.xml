@@ -17,26 +17,20 @@
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern> %logger{10} [%file:%line] %msg%n</pattern>
+            <pattern>%date [%thread] %logger{10} [%file:%line] %msg%n</pattern>
         </encoder>
     </appender>
 
-    <appender name="CONSOLE_X" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern> XX %date --> %msg%n</pattern>
-        </encoder>
-    </appender>
 
     <logger name="client">
-<!--        <appender-ref ref="CLIENT" />-->
-        <appender-ref ref="CONSOLE_X"/>
+        <appender-ref ref="CLIENT" />
     </logger>
 
     <logger name="server">
         <appender-ref ref="SERVER" />
     </logger>
 
-    <root level="none" >
+    <root level="info" >
         <appender-ref ref="CONSOLE" />
     </root>
 </configuration>

@@ -2,6 +2,8 @@ package server;
 
 import commom.User;
 import commom.UserList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -15,6 +17,7 @@ public class ServerUserRepository {
     private final Map<UUID, ObjectOutputStream> oosMap = new TreeMap<>();
     private final Map<UUID, User> userMap = new TreeMap<>();
     private final AtomicInteger counter = new AtomicInteger(0);
+    public static final Logger logger = LoggerFactory.getLogger("server");
 
     public synchronized void addUser(UUID uuid, User user) {
         if (!oosMap.containsKey(uuid)) {
@@ -23,12 +26,14 @@ public class ServerUserRepository {
         boolean shouldRename = userMap.values().stream().anyMatch(Predicate.isEqual(user));
         var name = shouldRename ? user.getName() + counter.incrementAndGet() : user.getName();
         userMap.computeIfAbsent(uuid, (u) -> new User(name));
+        logger.info("Added {}", shouldRename ? String.format("%s (connected as %s)", name, user.getName()) : name);
     }
 
     public synchronized void forEachChannel(BiConsumer<UUID, ObjectOutputStream> channellFn) {
         oosMap.entrySet().forEach(e -> channellFn.accept(e.getKey(), e.getValue()));
     }
     public synchronized void remove(UUID uuid) {
+        logger.info("Removed {}", getUser(uuid));
         oosMap.remove(uuid);
         userMap.remove(uuid);
     }

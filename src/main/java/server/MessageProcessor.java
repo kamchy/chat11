@@ -2,8 +2,6 @@ package server;
 
 import commom.Message;
 import commom.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -14,7 +12,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MessageProcessor implements  Runnable{
-    private static final Logger logger = LoggerFactory.getLogger("server");
     private final BlockingQueue<ServerMessage> messageQueue;
 
 
@@ -32,6 +29,7 @@ public class MessageProcessor implements  Runnable{
 
     @Override
     public void run() {
+        Thread.currentThread().setName("MessageProcessor");
         while (true) {
             try {
                 var msg = messageQueue.take();
@@ -92,7 +90,7 @@ public class MessageProcessor implements  Runnable{
             channel.writeObject(msg);
             channel.flush();
         } catch (IOException e) {
-            logger.error("Could not send: " + msg);
+            System.err.println(e);
         }
     }
 }

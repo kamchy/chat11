@@ -13,6 +13,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class Client {
 
@@ -87,11 +88,10 @@ public class Client {
             try (var iss = new ObjectInputStream(this.is)) {
                 while (true) {
                     var m = (Message) iss.readObject();
-                    logger.info(String.format("[%s] %s", m.getUser().getName(), m.getContent()));
                     handler.accept(m);
                 }
             } catch (IOException | ClassNotFoundException e) {
-                logger.error("Exception when running receiver: " + e.getMessage());
+                logger.error("Receiver exception: " + e);
             }
 
         }
@@ -110,17 +110,14 @@ public class Client {
 
         @Override
         public void run() {
-            logger.info("Started sender");
-
             try (var oss = new ObjectOutputStream(this.oss)) {
                 while (true) {
                     Message obk = supplier.get();
-                    logger.info(String.format("[%s] %s ", obk.getUser().getName(), obk.getContent()));
                     oss.writeObject(obk);
                     oss.flush();
                 }
             } catch (IOException e) {
-                logger.error("Sender exception: " + e.getMessage());
+                logger.error("Sender exception: " + e);
             }
         }
     }
@@ -138,6 +135,7 @@ public class Client {
             this.q = inQueue;
             this.self = self;
             try {
+                //TODO WHAT A HACK!
                 q.put(Message.createConnectMessage(self));
             } catch (InterruptedException e) {
                 logger.error("cannot send connect message");
@@ -194,28 +192,38 @@ public class Client {
                 }
                 messageConsumer.accept(Message.createDisonnectMessage(user));
             } catch (IOException e) {
-                System.err.print("Exception: " + e.getMessage());
+                System.err.print("Console client exception: " + e);
             }
         }
         private void showMessage(String format, Object...args) {
-            System.out.format(format + "\n", args);
+            System.out.format(format, args);
         }
 
         @Override
         public void accept(Message message) {
-            showMessage("%s\n", message);
-        }
+            switch (message.getType()) {
+                case MESSAGE:
+                    showMessage("[%s]: %s\n",
+                            message.getUser().getName(), message.getContent());
+                    break;
+                case CONNECT:
+                    showMessage("Connected %s\n", message.getUser().getName());
+                case DISCONNECT:
+                    showMessage("Disconnected %s", message.getUser().getName());
+                    break;
+                case USERLIST:
+                    showMessage("Users: \n%s\n",
+                            message.getUserlist().getUsers().stream()
+                                    .map(User::getName)
+                                    .collect(Collectors.joining(",")));
+                    break;
+                case STATUS:
+                    showMessage("[%s] changed status to [%s]\n", message.getUser().getName(), message.getUser().getStatus());
+                    break;
+            }
 
-        @Override
-        public Consumer<Message> andThen(Consumer<? super Message> after) {
-            return message -> {
-                accept(message);
-                after.accept(message);
-            };
         }
-
     }
-
 
 }
 
