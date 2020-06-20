@@ -22,6 +22,8 @@ public class Main {
                 var name = args[3];
                 if (option.equals("-cg")) {
                     Client.startGuiClientWith(host, port, name);
+                } else if (option.equals("-cc")) {
+                    Client.startCursesClientWith(host, port, name);
                 } else {
                     Client.startClientWith(host, port, name);
                 }
@@ -39,6 +41,7 @@ public class Main {
                 "java -jar chat11.jar -h                         prints this message\n" +
                 "java -jar chat11.jar -s [port]                  stars server on port (deault: 8881)\n" +
                 "java -jar chat11.jar -c host port username      starts console client that connects to host on port as username\n" +
+                "java -jar chat11.jar -cc host port username     starts curses console client that connects to host on port as username\n" +
                 "java -jar chat11.jar -cg host port username     starts swing gui client that connects to host on port as username\n");
         System.exit(exitCode);
     }

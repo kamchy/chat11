@@ -34,6 +34,9 @@ public class Client {
     public static void startClientWith(String host, String port, String username) {
         startThreadsAndClientFor(host, port, username, (messageQueue) -> new ConsoleClient(username, messageQueue));
     }
+    public static void startCursesClientWith(String host, String port, String username) {
+        startThreadsAndClientFor(host, port, username, (messageQueue) -> new CursesClient(username, messageQueue));
+    }
 
     private static void startThreadsAndClientFor(String host, String port, String username, Function<MessageQueue, LoopingConsumer> consumerFactory) {
         BlockingQueue<Message> inQueue = new ArrayBlockingQueue<>(10);
