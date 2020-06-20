@@ -1,10 +1,15 @@
 import client.Client;
 import server.ThreadedServer;
 
+import java.io.PrintStream;
+
 public class Main {
     public static void main(String[] args) {
         try {
             var option = args[0];
+            if (option.equals("-h")) {
+                printUsageAndExitWithCode(System.out, 0);
+            }
             if (option.equals("-s")) {
                 var port = 8881;
                 if (args.length > 1) {
@@ -25,10 +30,16 @@ public class Main {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.printf("Usage: [one of]\njava -jar chat11.jar -s [port]\n" +
-                    "java -jar chat11.jar -c host port username\n" +
-                    "java -jar chat11.jar -cg host port username\n");
-            System.exit(0);
+            printUsageAndExitWithCode(System.err, 1);
         }
      }
+
+    private static void printUsageAndExitWithCode(PrintStream stream, int exitCode) {
+        stream.printf("Usage: [one of]\n" +
+                "java -jar chat11.jar -h                         prints this message\n" +
+                "java -jar chat11.jar -s [port]                  stars server on port (deault: 8881)\n" +
+                "java -jar chat11.jar -c host port username      starts console client that connects to host on port as username\n" +
+                "java -jar chat11.jar -cg host port username     starts swing gui client that connects to host on port as username\n");
+        System.exit(exitCode);
+    }
 }
