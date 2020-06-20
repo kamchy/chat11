@@ -2,23 +2,29 @@ What is it?
 =======
 Simple chat application with minimum dependencies written in pure Java.
 Several types of a client program can be created:
- - console client (reads from stdin/writes to stdout) 
- - window client (using Swing)
- - text client 
+ - [done] console client (reads from stdin/writes to stdout) 
+ - [done] window client (using Swing)
+ - [done] text client 
 
 ![screenshot](/shot.png?raw=true "Chat windows with working emoji")
 
 TODO
 ====
-1. cleanup logs, rotate user logs
 1. allow username changes
-1. personal messages
-1. lanterna client
-1. chatrooms (ops, rights to invite/remove a user from a chatroom)
+1. personal messages/ chatrooms
 
-TODO BUGS
-==========
-1. Should log deduped name, not the one given by user
-2. Should not add /log?/ user twice
 
+USAGE
+======
+1. Build the app using 
+  ```bash
+  mvn clean package
+  ```
+1. Run the app with -h option
+  ```bash
+  java -jar target/chat11.jar -h
+  ```
+Three clients in action:
+
+![three clients](/tree_clients.png?raw=true "Three chat clients")
 
