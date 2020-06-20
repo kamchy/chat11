@@ -26,5 +26,5 @@ USAGE
   ```
 Three clients in action:
 
-![three clients](/tree_clients.png?raw=true "Three chat clients")
+![three clients](/three.png?raw=true "Three chat clients")
 
