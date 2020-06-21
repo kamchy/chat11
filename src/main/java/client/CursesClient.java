@@ -1,9 +1,14 @@
 package client;
 
+import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.TextColor;
+import com.googlecode.lanterna.bundle.LanternaThemes;
+import com.googlecode.lanterna.graphics.SimpleTheme;
 import com.googlecode.lanterna.gui2.*;
+import com.googlecode.lanterna.input.KeyStroke;
+import com.googlecode.lanterna.input.KeyType;
 import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
@@ -11,6 +16,7 @@ import com.googlecode.lanterna.terminal.Terminal;
 import commom.Message;
 import commom.User;
 
+import javax.sound.sampled.Line;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -18,9 +24,8 @@ class CursesClient implements Client.LoopingConsumer {
 
     private final User user;
     private final Consumer<Message> messageConsumer;
-
-    TextBox placeFor_names = new TextBox("placeFor names");
-    TextBox place_for_messages = new TextBox("Place for messages");
+    TextBox namesPanel = new TextBox("User names");
+    TextBox messagesPanel = new TextBox("Messages");
     TextBox entry;
     WindowBasedTextGUI textGUI;
     final Window window;
@@ -39,27 +44,34 @@ class CursesClient implements Client.LoopingConsumer {
     }
 
     private void initialize() throws IOException {
-
         Terminal terminal = new DefaultTerminalFactory().createTerminal();
-        terminal.setBackgroundColor(TextColor.ANSI.BLACK);
         Screen screen = new TerminalScreen(terminal);
         screen.startScreen();
         textGUI = new MultiWindowTextGUI(screen);
+        textGUI.setTheme(new SimpleTheme(TextColor.ANSI.WHITE, TextColor.ANSI.BLACK, SGR.BORDERED));
 
         Panel contentPanel = new Panel(new BorderLayout());
+
         Panel entryPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
-        place_for_messages.setSize(terminal.getTerminalSize().withRelativeColumns(-14));
-        place_for_messages.setReadOnly(true);
-        place_for_messages.setVerticalFocusSwitching(true);
-        placeFor_names.setReadOnly(true);
-        contentPanel.addComponent(place_for_messages.setLayoutData(BorderLayout.Location.CENTER).withBorder(Borders.singleLine("Messages")));
-        placeFor_names.setSize(terminal.getTerminalSize().withRelativeColumns(10));
-        contentPanel.addComponent(placeFor_names.setLayoutData(BorderLayout.Location.RIGHT));
+        TerminalSize terminalSize = terminal.getTerminalSize();
+
+        int messagePanelWidth = (int)(terminalSize.getColumns() * 0.8);
+        messagesPanel.setPreferredSize(terminalSize.withColumns(messagePanelWidth).withRelativeRows(-10));
+        messagesPanel.setReadOnly(true);
+
+        namesPanel.setReadOnly(true);
+        namesPanel.setSize(terminalSize.withColumns(terminalSize.getColumns() - messagePanelWidth).withRelativeRows(-10));
+
+        contentPanel.addComponent(namesPanel.setLayoutData(BorderLayout.Location.RIGHT).withBorder(Borders.singleLine("Users")));
+        contentPanel.addComponent(messagesPanel.setLayoutData(BorderLayout.Location.CENTER).withBorder(Borders.singleLine("Messages")));
         contentPanel.addComponent(entryPanel.setLayoutData(BorderLayout.Location.BOTTOM));
 
-        entry = new TextBox(new TerminalSize(80, 1));
-        entry.takeFocus();
-        Button sendButton = new Button("Send", () -> messageConsumer.accept(Message.createMessage(entry.getText(), user)));
+        entry = new TextBox(new TerminalSize(messagePanelWidth, 1));
+        entry.setTheme(new SimpleTheme(TextColor.ANSI.YELLOW_BRIGHT, TextColor.ANSI.BLACK_BRIGHT, SGR.BORDERED));
+
+
+        Button sendButton = new Button("Send", () ->
+                messageConsumer.accept(Message.createMessage(entry.getText(), user)));
         Button exitButton = new Button("Exit", () -> {
             messageConsumer.accept(Message.createDisonnectMessage(user));
             try {
@@ -70,13 +82,14 @@ class CursesClient implements Client.LoopingConsumer {
             }
         });
 
-        entryPanel.addComponent(entry.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Center)));
-        entryPanel.addComponent(sendButton.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.End)));
-        entryPanel.addComponent(exitButton.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.End)));
+        Panel buttonsPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        entryPanel.addComponent(entry.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Center)).withBorder(Borders.singleLine("Your message")));
+        entryPanel.addComponent(buttonsPanel.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.End)).withBorder(Borders.singleLine()));
+        buttonsPanel.addComponent(sendButton);
+        buttonsPanel.addComponent(exitButton);
 
         window.setComponent(contentPanel);
-        window.setPosition(TerminalPosition.OFFSET_1x1);
-        window.setFixedSize(new TerminalSize(100,20));
+        entry.takeFocus();
     }
 
     @Override
@@ -107,16 +120,17 @@ class CursesClient implements Client.LoopingConsumer {
     }
 
     private void showMessage(String format, Object... elems) {
-        place_for_messages.addLine(String.format(format, elems));
+        messagesPanel.addLine(String.format(format, elems));
+        messagesPanel.handleKeyStroke(new KeyStroke(KeyType.PageDown));
     }
 
     private void updateUsers(Message message) {
-        for (int i = 0; i < placeFor_names.getLineCount(); i++) {
-            placeFor_names.removeLine(i);
+        for (int i = 0; i < namesPanel.getLineCount(); i++) {
+            namesPanel.removeLine(i);
         }
 
         message.getUserlist().getUsers().stream()
-                .map(User::getName).forEach(name -> placeFor_names.addLine(name));
+                .map(User::getName).forEach(name -> namesPanel.addLine(name));
 
     }
 

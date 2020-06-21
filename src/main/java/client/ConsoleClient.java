@@ -28,6 +28,7 @@ class ConsoleClient implements Client.LoopingConsumer {
                 line = r.readLine();
             }
             messageConsumer.accept(Message.createDisonnectMessage(user));
+            System.exit(0);
         } catch (IOException e) {
             System.err.print("Console client exception: " + e);
         }
